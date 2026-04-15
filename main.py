@@ -14,7 +14,7 @@ from rich.live    import Live    as rLive
 from exitFunction_base import exitFunction
 
 if __name__ == "__main__":
-    print(termcolor.colored("<RQP MAP PARAMETERS SEEKER PROCESS>\n", 'light_green'))
+    print(termcolor.colored("<TARGET EXPOSURE FACTOR FUNCTION PARAMETERS SEEKER PROCESS>\n", 'light_green'))
 
     PROCESSBEGINTIME = int(time.time())
 
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 
         #[4-1]: Process Preparation
         #---[4-1-1]: Analysis Code
-        rCode = f"rqpfpResult_{int(PROCESSBEGINTIME)}"
+        rCode = f"teffps_result_{int(PROCESSBEGINTIME)}"
         print(f" * Result Code: {rCode}")
 
         #---[4-1-2]: Results Buffer
@@ -458,4 +458,4 @@ if __name__ == "__main__":
             print()
         print(termcolor.colored("[Seeker Result Read Complete]", 'light_blue'))
 
-    print(termcolor.colored("\n<RQP MAP PARAMETERS SEEKER PROCESS COMPLETE>", 'light_green'))
+    print(termcolor.colored("\n<TARGET EXPOSURE FACTOR FUNCTION PARAMETERS SEEKER PROCESS COMPLETE>", 'light_green'))

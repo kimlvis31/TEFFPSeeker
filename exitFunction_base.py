@@ -6,8 +6,8 @@ import math
 import time
 from functools import wraps
 
-from exitFunction_models import RQPFUNCTIONS_MODEL, RQPFUNCTIONS_INPUTDATAKEY, RQPFUNCTIONS_BATCHPROCESSFUNCTION
-import rqpfunctions.simulatorFunctions as sf
+from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
+import teffunctions.simulatorFunctions as sf
 
 ALLOCATIONRATIO = 0.90
 TRADINGFEE      = 0.0005
@@ -61,9 +61,9 @@ def BPST_Timer(func):
 class exitFunction():
     def __init__(self, modelName, isSeeker, leverage, pslReentry):
         self.MODELNAME                 = modelName
-        self.model                     = RQPFUNCTIONS_MODEL[self.MODELNAME]
-        self.inputDataKeys             = RQPFUNCTIONS_INPUTDATAKEY[self.MODELNAME]
-        self.modelBatchProcessFunction = RQPFUNCTIONS_BATCHPROCESSFUNCTION[self.MODELNAME]
+        self.model                     = TEFFUNCTIONS_MODEL[self.MODELNAME]
+        self.inputDataKeys             = TEFFUNCTIONS_INPUTDATAKEY[self.MODELNAME]
+        self.modelBatchProcessFunction = TEFFUNCTIONS_BATCHPROCESSFUNCTION[self.MODELNAME]
         self.isSeeker           = isSeeker
         self.leverage           = leverage
         self.pslReentry         = pslReentry
@@ -96,6 +96,7 @@ class exitFunction():
                 continue
             aIndex = indexIdentifier[klKey]
             data_klines[:,lIndex] = linearizedAnalysis[:,aIndex]
+
         #---[2-2]: Klines Data Normalization
         closePrice_initial = data_klines[0,KLINEINDEX_CLOSEPRICE].item()
         nonzero_indices = (data_klines[:,KLINEINDEX_VOLBASE] != 0).nonzero()
@@ -112,6 +113,7 @@ class exitFunction():
         data_klines[:,KLINEINDEX_CLOSEPRICE] = data_klines[:,KLINEINDEX_CLOSEPRICE]/closePrice_initial
         data_klines[:,KLINEINDEX_VOLBASE]         = data_klines[:,KLINEINDEX_VOLBASE]        /baseAssetVolume_initial
         data_klines[:,KLINEINDEX_VOLBASETAKERBUY] = data_klines[:,KLINEINDEX_VOLBASETAKERBUY]/baseAssetVolume_initial
+        
         #---[2-3]: Update Klines Data
         self.__data_klines = data_klines.to(dtype=_TORCHDTYPE).contiguous()
 

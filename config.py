@@ -52,7 +52,6 @@ SEEKERTARGETS = [{'analysisData':     'USC7_ae\\USC7_BTCUSDT',
                  },
                 ]
 
-
 """
 'paramConfig': [None,   #FSL Immed
                 1.0000, #FSL Close
@@ -72,10 +71,10 @@ SEEKERTARGETS = [{'analysisData':     'USC7_ae\\USC7_BTCUSDT',
 
 #[3]: Result Code to Read
 """
- * This parameter defines the target RQP function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
- * Example: _RCODETOREAD = 'rqpfpResult_1768722056'
+ * This parameter defines the target TEF function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
+ * Example: _RCODETOREAD = 'teffps_result_1768722056'
 """
-RCODETOREAD = 'rqpfpResult_1768759273'
+RCODETOREAD = 'teffps_result_1768759273'
 
 #[4]: Mode
 """

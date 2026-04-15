@@ -21,12 +21,12 @@ __pycache__/
 !run.sh
 !requirements.txt
 
-!rqpfunctions
-!rqpfunctions/.gitkeep
-rqpfunctions/*.py
-!rqpfunctions/simulatorFunctions.py
-!rqpfunctions/rqpf_MMACDLONGDEFAULT.py
-!rqpfunctions/rqpf_SPDDEFAULT.py
+!teffunctions
+!teffunctions/.gitkeep
+teffunctions/*.py
+!teffunctions/simulatorFunctions.py
+!teffunctions/teff_MMACDLONGDEFAULT.py
+!teffunctions/teff_SPDDEFAULT.py
 
 !linearizedAnalysis
 !linearizedAnalysis/.gitkeep

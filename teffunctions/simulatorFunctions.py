@@ -111,8 +111,8 @@ def processTrade_triton_kernel(
     tp_fsl_close,
     params_trade_pslReentry: tl.constexpr,
     #State & Result Tensors
-    rqpDir_this,
-    rqpVal_this, 
+    tefDir_this,
+    tefVal_this, 
     balance_wallet, 
     balance_allocated, 
     balance_margin,
@@ -128,9 +128,9 @@ def processTrade_triton_kernel(
     balance_margin_history
     ):
     #[1]: Trade Simulation ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #RQP Range Control
-    rqpVal_this = tl.minimum(rqpVal_this,  1.0)
-    rqpVal_this = tl.maximum(rqpVal_this, -1.0)
+    #TEF Range Control
+    tefVal_this = tl.minimum(tefVal_this,  1.0)
+    tefVal_this = tl.maximum(tefVal_this, -1.0)
 
     #Prices
     kline_base_ptr_this = data_klines + (loop_index * data_klines_stride)
@@ -161,10 +161,10 @@ def processTrade_triton_kernel(
     
     #Quantity Reduce
     balance_committed = tl.abs(quantity)  * entryPrice
-    balance_toCommit  = balance_allocated * tl.abs(rqpVal_this)
+    balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
 
     status_forceExit   = hit_liquidation | hit_fslImmed | hit_fslClose
-    status_clear       = (position_side != rqpDir_this)
+    status_clear       = (position_side != tefDir_this)
     status_partialExit = (balance_toCommit - balance_committed) < 0
 
     quantity_new = tl.where(position_has & status_partialExit, (balance_toCommit / entryPrice) * position_side, quantity)
@@ -186,15 +186,15 @@ def processTrade_triton_kernel(
     #Force Exit State Update
     if (params_trade_pslReentry == False):
         forceExited = tl.where(status_forceExit,           position_side, forceExited)
-        forceExited = tl.where(forceExited != rqpDir_this, 0.0,           forceExited)
+        forceExited = tl.where(forceExited != tefDir_this, 0.0,           forceExited)
 
     #Quantity Increase
     balance_committed = tl.abs(quantity_new) * entryPrice
-    balance_toCommit  = balance_allocated * tl.abs(rqpVal_this)
+    balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
     balance_toCommit_entry = tl.maximum(balance_toCommit-balance_committed, 0.0)
 
     quantity_entry = tl.where(forceExited == 0.0,
-                              (balance_toCommit_entry / kline_price_close)*tl.where(rqpVal_this < 0, -1.0, 1.0),
+                              (balance_toCommit_entry / kline_price_close)*tl.where(tefVal_this < 0, -1.0, 1.0),
                               0.0)
     quantity_final = quantity_new + quantity_entry
     
