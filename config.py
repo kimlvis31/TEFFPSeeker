@@ -1,12 +1,12 @@
-#[1]: Parameer Test
+#[1]: Parameter Test
 """
  * This parameter defines the model to test with a specific set of parameters.
 """
-PARAMETERTEST = {'analysisData':     'USC7_ae\\USC7_BTCUSDT',
+PARAMETERTEST = {'analysisData':     'USC1_ae\\USC1_BTCUSDT',
                  'exitFunctionType': 'SPDDEFAULT',
                  'leverage':         1,
-                 'tradeParams':      (0.0100, 1.0),
-                 'modelParams':      (-0.439299, 0.014246, 0.517208, 0.035750, 0.671966, 0.671804),
+                 'tradeParams':      (1.0000, 1.0000),
+                 'modelParams':      (0.0000, 1.000000, 1.000000, 0.0000, 1.000000, 1.000000),
                  'pslReentry':       False,
                 }
 """
@@ -18,19 +18,19 @@ PARAMETERTEST = {'analysisData':     'USC7_ae\\USC7_BTCUSDT',
                 }
 """
 
-#[2]: Analysis Data to Process
+#[2]: Seeker Targets
 """
  * This parameter defines the model 
 """
-SEEKERTARGETS = [{'analysisData':     'USC7_ae\\USC7_BTCUSDT',
-                  'exitFunctionType': 'MMACDLONGDEFAULT',
+SEEKERTARGETS = [{'analysisData':     'USC1_ae\\USC1_BTCUSDT',
+                  'exitFunctionType': 'SPDDEFAULT',
                   'leverage':         1,
                   'pslReentry':       False,
-                  'tradeParamConfig': (None, 1.0000),
-                  'modelParamConfig': (None, None, None, None, None),
-                  'nSeekerPoints':            10000,
+                  'tradeParamConfig': (None, None),
+                  'modelParamConfig': (None, None, None, None, None, None),
+                  'nSeekerPoints':            1000,
                   'parameterBatchSize':       None,
-                  'nRepetition':              10,
+                  'nRepetition':              1,
                   'learningRate':             0.001,
                   'deltaRatio':               0.10,
                   'beta_velocity':            0.999,
@@ -74,7 +74,7 @@ SEEKERTARGETS = [{'analysisData':     'USC7_ae\\USC7_BTCUSDT',
  * This parameter defines the target TEF function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
  * Example: _RCODETOREAD = 'teffps_result_1768722056'
 """
-RCODETOREAD = 'teffps_result_1768759273'
+RCODETOREAD = 'teffps_result_1776309399'
 
 #[4]: Mode
 """
@@ -82,4 +82,4 @@ RCODETOREAD = 'teffps_result_1768759273'
  * 
  * Available Modes: 'TEST'/'SEEK'/'READ'
 """
-MODE = 'SEEK'
+MODE = 'READ'

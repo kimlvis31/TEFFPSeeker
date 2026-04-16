@@ -4,6 +4,7 @@ import termcolor
 import sys
 import math
 import time
+import pandas
 from functools import wraps
 
 from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
@@ -17,13 +18,9 @@ BPST_PRINTINTERVAL = 100e6
 
 _TORCHDTYPE = torch.float32
 
-KLINEINDEX_OPENTIME        = sf.KLINEINDEX_OPENTIME
-KLINEINDEX_OPENPRICE       = sf.KLINEINDEX_OPENPRICE
-KLINEINDEX_HIGHPRICE       = sf.KLINEINDEX_HIGHPRICE
-KLINEINDEX_LOWPRICE        = sf.KLINEINDEX_LOWPRICE
-KLINEINDEX_CLOSEPRICE      = sf.KLINEINDEX_CLOSEPRICE
-KLINEINDEX_VOLBASE         = sf.KLINEINDEX_VOLBASE
-KLINEINDEX_VOLBASETAKERBUY = sf.KLINEINDEX_VOLBASETAKERBUY
+NORMPRICEINDEX_HIGHPRICE  = sf.NORMPRICEINDEX_HIGHPRICE
+NORMPRICEINDEX_LOWPRICE   = sf.NORMPRICEINDEX_LOWPRICE
+NORMPRICEINDEX_CLOSEPRICE = sf.NORMPRICEINDEX_CLOSEPRICE
 
 TRADEPARAMS = [{'PRECISION': 4, 'LIMIT': (0.0000, 1.0000)}, #FSL Immed <NECESSARY>
                {'PRECISION': 4, 'LIMIT': (0.0000, 1.0000)}, #FSL Close <NECESSARY>
@@ -35,10 +32,12 @@ def removeConsoleLines(nLinesToRemove: int) -> None:
         sys.stdout.flush()
 
 def timeStringFormatter(time_seconds: int) -> str:
-    if   (time_seconds < 60):    return "00:{:02d}".format(time_seconds)                                                                                                                                  #Less than a minute
-    elif (time_seconds < 3600):  return "{:02d}:{:02d}".format(int(time_seconds/60), time_seconds%60)                                                                                                     #Less than an hour
-    elif (time_seconds < 86400): return "{:02d}:{:02d}:{:02d}".format(int(time_seconds/3600), int((time_seconds-int(time_seconds/3600)*3600)/60), time_seconds%60)                                        #Less than a day
-    else: return "{:d}:{:02d}:{:02d}:{:02d}".format(int(time_seconds/86400), int((time_seconds-int(time_seconds/86400)*86400)/3600), int((time_seconds-int(time_seconds/3600)*3600)/60), time_seconds%60) #More than a day
+    minutes, seconds = divmod(time_seconds, 60)
+    hours,   minutes = divmod(minutes,      60)
+    days,    hours   = divmod(hours,        24)
+    if   0 < days:  return f"{days}:{hours:02d}:{minutes:02d}:{seconds:02d}"
+    elif 0 < hours: return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    else:           return f"{minutes:02d}:{seconds:02d}"
 
 def BPST_Timer(func):
     ce_beg = torch.cuda.Event(enable_timing=True)
@@ -70,235 +69,93 @@ class exitFunction():
         self.parameterBatchSize = 32
 
         #Data Set
-        self.__data_klines   = None
-        self.__data_analysis = None
+        self.__data_normPrices = None
+        self.__data_analysis   = None
 
         #Seeker
         self.__seeker = None
 
-    def preprocessData(self, linearizedAnalysis: numpy.ndarray, indexIdentifier: dict) -> None:
-        #[1]: Tensor Conversion
-        linearizedAnalysis = torch.from_numpy(linearizedAnalysis).to(device='cuda', dtype=torch.float64)
-        dataLen = linearizedAnalysis.size(dim = 0)
+    def preprocessData(self, linearizedAnalysis: numpy.ndarray, indexIdentifier: dict) -> tuple[float, float] | None:
+        #[1]: Instances
+        dataLen = linearizedAnalysis.shape[0]
+        error   = False
 
-        #[2]: Klines Tensor
-        #---[2-1]: Klines Data Initialization & Data Load
-        data_klines = torch.full(size = (dataLen, 7), fill_value = torch.nan, device='cuda', dtype=torch.float64)
-        for lIndex, klKey in ((KLINEINDEX_OPENTIME,        'KLINE_OPENTIME'), 
-                              (KLINEINDEX_OPENPRICE,       'KLINE_OPENPRICE'), 
-                              (KLINEINDEX_HIGHPRICE,       'KLINE_HIGHPRICE'), 
-                              (KLINEINDEX_LOWPRICE,        'KLINE_LOWPRICE'), 
-                              (KLINEINDEX_CLOSEPRICE,      'KLINE_CLOSEPRICE'), 
-                              (KLINEINDEX_VOLBASE,         'KLINE_VOLBASE'), 
-                              (KLINEINDEX_VOLBASETAKERBUY, 'KLINE_VOLBASETAKERBUY')):
-            if klKey not in indexIdentifier:
-                print(termcolor.colored(f"      - [WARNING] Kline Data Key '{klKey}' Not Found In The Index Identifier. The Corresponding Data Will Stay Empty", 'light_red'))
+        #[2]: Data Keys Check
+        #---[2-1]: Normalized Prices
+        for lIndex, klKey in ((NORMPRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+                              (NORMPRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
+                              (NORMPRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
+            aIndex = indexIdentifier.get(klKey, None)
+            if aIndex is None:
+                print(termcolor.colored(f"      - [ERROR] Kline Data Key '{klKey}' Not Found In The Index Identifier.", 'light_red'))
+                error = True
                 continue
-            aIndex = indexIdentifier[klKey]
-            data_klines[:,lIndex] = linearizedAnalysis[:,aIndex]
 
-        #---[2-2]: Klines Data Normalization
-        closePrice_initial = data_klines[0,KLINEINDEX_CLOSEPRICE].item()
-        nonzero_indices = (data_klines[:,KLINEINDEX_VOLBASE] != 0).nonzero()
-        if 0 < nonzero_indices.size(0):
-            first_nonzero_idx       = nonzero_indices[0, 0]
-            baseAssetVolume_initial = data_klines[first_nonzero_idx, KLINEINDEX_VOLBASE]
-            if first_nonzero_idx != 0: print(termcolor.colored(f"      - [WARNING] None Zero-Index Volume Used During The Volume Normalization. Used Index: {first_nonzero_idx.item()}", 'light_red'))
-        else:
-            baseAssetVolume_initial = 1.0
-            print(termcolor.colored("      - [WARNING] No Non-Zero Volume Found During The Volume Normalization. Assuming The Initial Value Of 1.0", 'light_red'))
-        data_klines[:,KLINEINDEX_OPENPRICE]  = data_klines[:,KLINEINDEX_OPENPRICE] /closePrice_initial
-        data_klines[:,KLINEINDEX_HIGHPRICE]  = data_klines[:,KLINEINDEX_HIGHPRICE] /closePrice_initial
-        data_klines[:,KLINEINDEX_LOWPRICE]   = data_klines[:,KLINEINDEX_LOWPRICE]  /closePrice_initial
-        data_klines[:,KLINEINDEX_CLOSEPRICE] = data_klines[:,KLINEINDEX_CLOSEPRICE]/closePrice_initial
-        data_klines[:,KLINEINDEX_VOLBASE]         = data_klines[:,KLINEINDEX_VOLBASE]        /baseAssetVolume_initial
-        data_klines[:,KLINEINDEX_VOLBASETAKERBUY] = data_klines[:,KLINEINDEX_VOLBASETAKERBUY]/baseAssetVolume_initial
-        
-        #---[2-3]: Update Klines Data
-        self.__data_klines = data_klines.to(dtype=_TORCHDTYPE).contiguous()
-
-        #[3]: Analysis Tensor
-        #---[2-1]: Analysis Data Load
-        data_analysis = torch.full(size = (dataLen, len(self.inputDataKeys)), fill_value = torch.nan, device='cuda', dtype=torch.float64)
+        #---[2-2]: Analysis Data
         for lIndex, laKey in enumerate(self.inputDataKeys):
-            #[2-1-1]: Linearized Analysis Key Check
-            if laKey not in indexIdentifier:
-                print(termcolor.colored(f"      - [WARNING] Linearized Analysis Key '{laKey}' Not Found In The Index Identifier. The Corresponding Data Will Stay Empty", 'light_red'))
+            aIndex = indexIdentifier.get(laKey, None)
+            if aIndex is None:
+                print(termcolor.colored(f"      - [ERROR] Linearized Analysis Key '{laKey}' Not Found In The Index Identifier.", 'light_red'))
+                error = True
                 continue
+        if error:
+            return None
+
+
+
+        #[3]: Normalized Prices Tensor
+        #---[3-1]: Preparation
+        np_normPrices = numpy.full((dataLen, 3), numpy.nan, dtype=numpy.float64)
+        for lIndex, klKey in ((NORMPRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+                              (NORMPRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
+                              (NORMPRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
+            aIndex = indexIdentifier[klKey]
+            np_normPrices[:, lIndex] = linearizedAnalysis[:, aIndex]
+
+        #---[3-2]: First Valid Index & Trim
+        cp_valid_mask    = ~numpy.isnan(np_normPrices[:, NORMPRICEINDEX_CLOSEPRICE])
+        cp_valid_indices = numpy.nonzero(cp_valid_mask)[0]
+        if cp_valid_indices.size == 0:
+            print(termcolor.colored(f"      - [ERROR] No Valid Price Data Detected.", 'light_red'))
+            return None
+        trimIdx       = cp_valid_indices[0]
+        validLen      = dataLen - trimIdx
+        validityRate  = validLen / dataLen
+        np_normPrices = np_normPrices[trimIdx:]
+
+        #---[3-3]: NaN Gap Forward-Fill (Last Valid Close Price)
+        totalCells = np_normPrices.size
+        nanCount   = int(numpy.isnan(np_normPrices).sum())
+        gapRate    = nanCount / totalCells
+        df = pandas.DataFrame(np_normPrices)
+        df.iloc[:, NORMPRICEINDEX_CLOSEPRICE] = df.iloc[:, NORMPRICEINDEX_CLOSEPRICE].ffill()
+        df.iloc[:, NORMPRICEINDEX_HIGHPRICE]  = df.iloc[:, NORMPRICEINDEX_HIGHPRICE].fillna(df.iloc[:, NORMPRICEINDEX_CLOSEPRICE])
+        df.iloc[:, NORMPRICEINDEX_LOWPRICE]   = df.iloc[:, NORMPRICEINDEX_LOWPRICE].fillna(df.iloc[:, NORMPRICEINDEX_CLOSEPRICE])
+        np_normPrices = df.to_numpy(copy=True)
+
+        #---[3-4]: Normalization
+        np_normPrices /= np_normPrices[0, NORMPRICEINDEX_CLOSEPRICE]
+
+        #---[3-5]: Save Contiguous Normalized Prices Data
+        self.__data_normPrices = torch.from_numpy(np_normPrices).to(device='cuda', dtype=_TORCHDTYPE).contiguous()
+
+
+
+        #[4]: Analysis Tensor
+        #---[4-1]: Analysis Data Load (Trimmed, No Gap Fill)
+        la_trimmed    = linearizedAnalysis[trimIdx:]
+        data_analysis = torch.full(size=(validLen, len(self.inputDataKeys)), fill_value=torch.nan, device='cuda', dtype=torch.float64)
+        for lIndex, laKey in enumerate(self.inputDataKeys):
             aIndex = indexIdentifier[laKey]
-            #[2-1-2]: Analysis Data Preprocessing (Recognition & Normalization) & Update
-            data_analysis[:,lIndex] = self.__preprocessAnalysisData(linearizedAnalysisKey   = laKey,
-                                                                    analysisDataLine        = linearizedAnalysis[:,aIndex],
-                                                                    closePrice_initial      = closePrice_initial,
-                                                                    baseAssetVolume_initial = baseAssetVolume_initial)
-        #---[2-2]: Save Contiguous Analysis Data
+            data_analysis[:, lIndex] = torch.from_numpy(la_trimmed[:, aIndex]).to(device='cuda', dtype=torch.float64)
+
+        #---[4-2]: Save Contiguous Analysis Data
         self.__data_analysis = data_analysis.to(dtype=_TORCHDTYPE).contiguous()
 
-    def __preprocessAnalysisData(self, linearizedAnalysisKey, analysisDataLine, closePrice_initial, baseAssetVolume_initial):
-        #[1]: Linearized Analysis Key Check
-        laKeySplit    = linearizedAnalysisKey.split("_")
-        laKeySplitLen = len(laKeySplit)
-        if laKeySplitLen == 2: 
-            aType, valType = laKeySplit
-            aLine = None
-        elif laKeySplitLen == 3: 
-            aType, aLine, valType = laKeySplit
-        else:
-            print(termcolor.colored(f"      - [WARNING] Unexpected Format Of Linearized Analysis Key Detected - '{linearizedAnalysisKey}'. User Attention Strongly Advised", 'light_red'))
-            return analysisDataLine
-        
-        #[2]: Type-Dependent Normalization
-        aType_unrecognized   = False
-        valType_unrecognized = False
-        adl_pp = analysisDataLine
-
-        #---[2-1]: Analysis Type - SMA
-        if aType == 'SMA':
-            if valType == 'SMA':
-                adl_pp = analysisDataLine/closePrice_initial
-            else: 
-                valType_unrecognized = True
 
 
-
-        #---[2-2]: Analysis Type - WMA
-        elif aType == 'WMA':
-            if valType == 'WMA':
-                adl_pp = analysisDataLine/closePrice_initial
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-3]: Analysis Type - EMA
-        elif aType == 'EMA':
-            if valType == 'EMA':
-                adl_pp = analysisDataLine/closePrice_initial
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-4]: Analysis Type - PSAR
-        elif aType == 'PSAR':
-            if valType == 'PSAR':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'DCC':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-5]: Analysis Type - BOL
-        elif aType == 'BOL':
-            if valType == 'BOLLOW':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'BOLHIGH':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'MA':
-                adl_pp = analysisDataLine/closePrice_initial
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-6]: Analysis Type - IVP
-        elif aType == 'IVP':
-            if valType.startswith("NB") and valType[2:].isdigit():
-                adl_pp = analysisDataLine/closePrice_initial
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-7]: Analysis Type - SWING
-        elif aType == 'SWING':
-            if valType == 'LSTIMESTAMP':
-                adl_pp = analysisDataLine
-            elif valType == 'LSPRICE':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'LSTYPE':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-8]: Analysis Type - VOL
-        elif aType == 'VOL':
-            if valType == 'MABASE':
-                adl_pp = analysisDataLine/baseAssetVolume_initial
-            elif valType == 'MABASETB':
-                adl_pp = analysisDataLine/baseAssetVolume_initial
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-9]: Analysis Type - NNA
-        elif aType == 'NNA':
-            if valType == 'NNA':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-10]: Analysis Type - MMACDSHORT
-        elif aType == 'MMACDSHORT':
-            if valType == 'MSDELTA':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'MSDELTAABSMA':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'MSDELTAABSMAREL':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-11]: Analysis Type - MMACDLONG
-        elif aType == 'MMACDLONG':
-            if valType == 'MSDELTA':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'MSDELTAABSMA':
-                adl_pp = analysisDataLine/closePrice_initial
-            elif valType == 'MSDELTAABSMAREL':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-12]: Analysis Type - DMIxADX
-        elif aType == 'DMIxADX':
-            if valType == 'ABSATHREL':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-13]: Analysis Type - MFI
-        elif aType == 'MFI':
-            if valType == 'ABSATHREL':
-                adl_pp = analysisDataLine
-            else: 
-                valType_unrecognized = True
-
-
-
-        #---[2-14]: Unrecognizable Analysis Type
-        else:
-            aType_unrecognized = True
-
-
-
-        #[3]: Result Interpretation
-        if aType_unrecognized:   print(termcolor.colored(f"      - [WARNING] Unrecognized Analysis Type Detected During Linearized Analysis Data Normalization - '{aType}'. User Attention Strongly Advised", 'light_red'))
-        if valType_unrecognized: print(termcolor.colored(f"      - [WARNING] Unrecognized Value Type Detected During Linearized Analysis Data Normalization - '{valType}'. User Attention Strongly Advised", 'light_red'))
-        return adl_pp
+        #[5]: Return Validity Metrics
+        return (validityRate, gapRate)
 
     def initializeSeeker(self,
                          tradeParamConfig:         list,
@@ -327,8 +184,8 @@ class exitFunction():
 
         #[1]: Seeker Parameters Check
         #---[1-1]: tradeParamConfig
+        nParams_trade = len(TRADEPARAMS)
         if type(tradeParamConfig) not in (list, tuple): tradeParamConfig = [None,]*nParams_trade
-        nParams_trade       = len(TRADEPARAMS)
         nParams_tradeConfig = len(tradeParamConfig)
         if nParams_tradeConfig < nParams_trade: 
             tradeParamConfig += [None,]*(nParams_trade-nParams_tradeConfig)
@@ -336,8 +193,8 @@ class exitFunction():
             tradeParamConfig = tradeParamConfig[:nParams_trade]
         tradeParamConfig = tuple(tradeParamConfig)
         #---[1-2]: modelParamConfig
+        nParams_model = len(self.model)
         if type(modelParamConfig) not in (list, tuple): modelParamConfig = [None,]*nParams_model
-        nParams_model       = len(self.model)
         nParams_modelConfig = len(modelParamConfig)
         if nParams_modelConfig < nParams_model: 
             modelParamConfig += [None,]*(nParams_model-nParams_modelConfig)
@@ -484,31 +341,33 @@ class exitFunction():
         self.parameterBatchSize = self.__seeker['parameterBatchSize']
         
         #[8]: Applied Seeker Parameters
-        asp = dict()
-        asp['tradeParamConfig']         = self.__seeker['tradeParamConfig']
-        asp['modelParamConfig']         = self.__seeker['modelParamConfig']
-        asp['parameterBatchSize']       = self.__seeker['parameterBatchSize']
-        asp['nSeekerPoints']            = self.__seeker['nSeekerPoints']
-        asp['nRepetition']              = self.__seeker['nRepetition']
-        asp['learningRate']             = self.__seeker['learningRate']
-        asp['deltaRatio']               = self.__seeker['deltaRatio']
-        asp['beta_velocity']            = self.__seeker['beta_velocity']
-        asp['beta_momentum']            = self.__seeker['beta_momentum']
-        asp['repopulationRatio']        = self.__seeker['repopulationRatio']
-        asp['repopulationInterval']     = self.__seeker['repopulationInterval']
-        asp['repopulationGuideRatio']   = self.__seeker['repopulationGuideRatio']
-        asp['repopulationDecayRate']    = self.__seeker['repopulationDecayRate']
-        asp['scoring']                  = self.__seeker['scoring']
-        asp['scoring_maxMDD']           = self.__seeker['scoring_maxMDD']
-        asp['scoring_growthRateWeight'] = self.__seeker['scoring_growthRateWeight']
-        asp['scoring_growthRateScaler'] = self.__seeker['scoring_growthRateScaler']
-        asp['scoring_volatilityWeight'] = self.__seeker['scoring_volatilityWeight']
-        asp['scoring_volatilityScaler'] = self.__seeker['scoring_volatilityScaler']
-        asp['scoring_nTradesWeight']    = self.__seeker['scoring_nTradesWeight']
-        asp['scoring_nTradesScaler']    = self.__seeker['scoring_nTradesScaler']
-        asp['scoringSamples']           = self.__seeker['scoringSamples']
-        asp['terminationThreshold']     = self.__seeker['terminationThreshold']
-
+        asp = {k: self.__seeker[k] 
+               for k
+               in ('tradeParamConfig',
+                   'modelParamConfig',
+                   'parameterBatchSize',
+                   'nSeekerPoints',
+                   'nRepetition',
+                   'learningRate',
+                   'deltaRatio',
+                   'beta_velocity',
+                   'beta_momentum',
+                   'repopulationRatio',
+                   'repopulationInterval',
+                   'repopulationGuideRatio',
+                   'repopulationDecayRate',
+                   'scoring',
+                   'scoring_maxMDD',
+                   'scoring_growthRateWeight',
+                   'scoring_growthRateScaler',
+                   'scoring_volatilityWeight',
+                   'scoring_volatilityScaler',
+                   'scoring_nTradesWeight',
+                   'scoring_nTradesScaler',
+                   'scoringSamples',
+                   'terminationThreshold'
+                  )
+              }
         return asp
     
     def __getTestParams(self):
@@ -820,7 +679,7 @@ class exitFunction():
     def __processBatch(self, params: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         #[1]: Data
         size_paramsBatch = params.size(dim = 0)
-        size_dataLen     = self.__data_klines.size(dim = 0)
+        size_dataLen     = self.__data_normPrices.size(dim = 0)
         params_trade = params[:,:len(TRADEPARAMS)]
         params_model = params[:,len(TRADEPARAMS):]
 
@@ -849,8 +708,8 @@ class exitFunction():
                                        allocationRatio = ALLOCATIONRATIO,
                                        tradingFee      = TRADINGFEE,
                                        #Base Data
-                                       data_klines             = self.__data_klines,
-                                       data_klines_stride      = self.__data_klines.stride(dim=0),
+                                       data_normPrices         = self.__data_normPrices,
+                                       data_normPrices_stride  = self.__data_normPrices.stride(dim=0),
                                        data_analysis           = self.__data_analysis,
                                        data_analysis_stride    = self.__data_analysis.stride(dim=0),
                                        params_trade_fslImmed   = params_trade[:,0].contiguous(),
@@ -891,5 +750,8 @@ class exitFunction():
         return self.__processBatch(params = params) 
 
     def performOnParams(self, params: list) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.__processBatch(params = torch.tensor(data = params, device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False))
+        return self.__processBatch(params = torch.tensor(data          = params, 
+                                                         device        = 'cuda', 
+                                                         dtype         = _TORCHDTYPE,
+                                                         requires_grad = False))
 # =======================================================================================================================================================================================================================================================

@@ -5,3 +5,4 @@ numpy==2.4.0
 matplotlib==3.10.8
 termcolor==3.2.0
 rich==14.2.0
+pandas==3.0.2

@@ -3,14 +3,6 @@ import triton.language as tl
 from triton.language.extra import libdevice as tl_ld
 from . import simulatorFunctions as sf
 
-KLINEINDEX_OPENTIME:        tl.constexpr = sf.KLINEINDEX_OPENTIME
-KLINEINDEX_OPENPRICE:       tl.constexpr = sf.KLINEINDEX_OPENPRICE
-KLINEINDEX_HIGHPRICE:       tl.constexpr = sf.KLINEINDEX_HIGHPRICE
-KLINEINDEX_LOWPRICE:        tl.constexpr = sf.KLINEINDEX_LOWPRICE
-KLINEINDEX_CLOSEPRICE:      tl.constexpr = sf.KLINEINDEX_CLOSEPRICE
-KLINEINDEX_VOLBASE:         tl.constexpr = sf.KLINEINDEX_VOLBASE
-KLINEINDEX_VOLBASETAKERBUY: tl.constexpr = sf.KLINEINDEX_VOLBASETAKERBUY
-
 """
 FUNCTION MODEL: MMACDLONGDEFAULT (MMACDLONG Default)
  * The first two parameters are required by the system, and must always be included in the format as they are.
@@ -22,7 +14,7 @@ MODEL = [{'PRECISION': 4, 'LIMIT': (0.0001,   5.0000)},   #Alpha
          {'PRECISION': 6, 'LIMIT': (0.000000, 1.000000)}, #Strength - LONG
         ]
 
-INPUTDATAKEYS = ['0_MMACDLONG_MSDELTAABSMAREL',]
+INPUTDATAKEYS = ['0_MMACD_MSDELTAABSMAREL',]
 
 def PROCESSBATCH(**kwargs):
     sf.processBatch(tkf = processBatch, **kwargs)
@@ -43,8 +35,8 @@ def processBatch(
     allocationRatio: tl.constexpr,
     tradingFee:      tl.constexpr,
     #Base Data
-    data_klines,
-    data_klines_stride:   tl.constexpr,
+    data_normPrices,
+    data_normPrices_stride: tl.constexpr,
     data_analysis,
     data_analysis_stride: tl.constexpr,
     params_trade_fslImmed,
@@ -115,8 +107,6 @@ def processBatch(
             size_block = size_block,
             #Base Data
             loop_index           = loop_index,
-            data_klines          = data_klines, 
-            data_klines_stride   = data_klines_stride,
             data_analysis        = data_analysis, 
             data_analysis_stride = data_analysis_stride,
             #Model Parameters
@@ -155,8 +145,8 @@ def processBatch(
             tradingFee      = tradingFee,
             #Base Data
             loop_index              = loop_index,
-            data_klines             = data_klines,
-            data_klines_stride      = data_klines_stride,
+            data_normPrices         = data_normPrices,
+            data_normPrices_stride  = data_normPrices_stride,
             tp_fsl_immed            = tp_fsl_immed, 
             tp_fsl_close            = tp_fsl_close,
             params_trade_pslReentry = params_trade_pslReentry,
@@ -214,8 +204,6 @@ def getTEFValue(
     size_block: tl.constexpr,
     #Base Data
     loop_index,
-    data_klines, 
-    data_klines_stride: tl.constexpr,
     data_analysis, 
     data_analysis_stride: tl.constexpr,
     #Model Parameters
@@ -229,51 +217,44 @@ def getTEFValue(
     st_mmacdlong_msDeltaAbsMARel_prev,
     ):
 
-    #[1]: Base Data - Kline
-    """
-    <Not Used For This Model>
-    kline_base_ptr_this = data_klines + (loop_index * data_klines_stride)
-    kline_price_close   = tl.load(kline_base_ptr_this + KLINEINDEX_CLOSEPRICE)
-    """
-
-    #[2]: Base Data - Analysis
+    #[1]: Base Data - Analysis
     analysis_base_ptr_this = data_analysis + (loop_index * data_analysis_stride)
     analysis_mmacdlong_msDeltaAbsMARel = tl.load(analysis_base_ptr_this + 0)
 
-    #[3]: Nan Check
+    #[2]: Nan Check
     isNan = (analysis_mmacdlong_msDeltaAbsMARel != analysis_mmacdlong_msDeltaAbsMARel)
     analysis_mmacdlong_msDeltaAbsMARel = tl.where(isNan, 0.0, analysis_mmacdlong_msDeltaAbsMARel)
 
-    #[4]: ABSMARel Cycle
+    #[3]: ABSMARel Cycle
     isShort_prev = (st_mmacdlong_msDeltaAbsMARel_prev  < mp_delta)
     isShort_this = (analysis_mmacdlong_msDeltaAbsMARel < mp_delta)
     cycleReset   = (isShort_prev ^ isShort_this)
 
-    #[5]: TEF Value Calculation
-    #---[5-1]: Effective Params
+    #[4]: TEF Value Calculation
+    #---[4-1]: Effective Params
     mp_strength_eff = tl.where(isShort_this, mp_strength_S, mp_strength_L)
-    #---[5-2]: MSDeltaAbsMARel Normalization
+    #---[4-2]: MSDeltaAbsMARel Normalization
     x_sign = tl.where(analysis_mmacdlong_msDeltaAbsMARel < 0, -1.0, 1.0)
     x_abs  = tl_ld.pow(tl.abs(analysis_mmacdlong_msDeltaAbsMARel/mp_alpha), mp_beta)
     y_norm = tl_ld.tanh(x_abs)*x_sign
-    #---[5-3]: TEF Value
+    #---[4-3]: TEF Value
     width = tl.where(isShort_this, mp_delta+1.0, 1.0-mp_delta)
     dist  = tl.abs(y_norm-mp_delta)
     tefVal_this_abs = tl.maximum(1-(dist/tl.maximum(width, 1e-9)), 0.0)*mp_strength_eff
     tefVal_this_abs = tl.where(width == 0.0, 0.0, tefVal_this_abs)
-    #---[5-4]: Cyclic Minimum
+    #---[4-4]: Cyclic Minimum
     tefVal_this_abs = tl.where(cycleReset, tefVal_this_abs, tl.minimum(tefVal_this_abs, tl.abs(st_tefVal_prev)))
-    #---[5-5]: Direction
+    #---[4-5]: Direction
     tefVal_this = tl.where(isShort_this, -tefVal_this_abs, tefVal_this_abs)
-    #---[5-6]: Nan Check
+    #---[4-6]: Nan Check
     tefDir_this = tl.where(isNan, 0.0, tl.where(isShort_this, -1.0, 1.0))
     tefVal_this = tl.where(isNan, 0.0, tefVal_this)
 
-    #[6]: State Trackers Update
+    #[5]: State Trackers Update
     st_tefVal_prev                    = tefVal_this
     st_mmacdlong_msDeltaAbsMARel_prev = analysis_mmacdlong_msDeltaAbsMARel
     
-    #[7]: Return TEF Value & States
+    #[6]: Return TEF Value & States
     return (tefDir_this,
             tefVal_this,
             st_tefVal_prev,

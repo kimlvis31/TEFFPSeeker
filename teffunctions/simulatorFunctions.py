@@ -22,13 +22,9 @@ TRITON_AUTOTUNE_CONFIGURATIONS = [triton.Config({'size_block': 32},  num_warps= 
                                  ]
 TRITON_AUTOTUNE_KEY = ['size_paramsBatch']
 
-KLINEINDEX_OPENTIME:        tl.constexpr = 0
-KLINEINDEX_OPENPRICE:       tl.constexpr = 1
-KLINEINDEX_HIGHPRICE:       tl.constexpr = 2
-KLINEINDEX_LOWPRICE:        tl.constexpr = 3
-KLINEINDEX_CLOSEPRICE:      tl.constexpr = 4
-KLINEINDEX_VOLBASE:         tl.constexpr = 5
-KLINEINDEX_VOLBASETAKERBUY: tl.constexpr = 6
+NORMPRICEINDEX_HIGHPRICE:  tl.constexpr = 0
+NORMPRICEINDEX_LOWPRICE:   tl.constexpr = 1
+NORMPRICEINDEX_CLOSEPRICE: tl.constexpr = 2
 
 def processBatch(tkf, **kwargs):
     if kwargs['SEEKERMODE']:
@@ -105,8 +101,8 @@ def processTrade_triton_kernel(
     tradingFee:      tl.constexpr,
     #Base Data
     loop_index,
-    data_klines,
-    data_klines_stride,
+    data_normPrices,
+    data_normPrices_stride,
     tp_fsl_immed, 
     tp_fsl_close,
     params_trade_pslReentry: tl.constexpr,
@@ -133,10 +129,10 @@ def processTrade_triton_kernel(
     tefVal_this = tl.maximum(tefVal_this, -1.0)
 
     #Prices
-    kline_base_ptr_this = data_klines + (loop_index * data_klines_stride)
-    kline_price_high  = tl.load(kline_base_ptr_this + KLINEINDEX_HIGHPRICE)
-    kline_price_low   = tl.load(kline_base_ptr_this + KLINEINDEX_LOWPRICE)
-    kline_price_close = tl.load(kline_base_ptr_this + KLINEINDEX_CLOSEPRICE)
+    norm_price_base_ptr_this = data_normPrices + (loop_index * data_normPrices_stride)
+    norm_price_high  = tl.load(norm_price_base_ptr_this + NORMPRICEINDEX_HIGHPRICE)
+    norm_price_low   = tl.load(norm_price_base_ptr_this + NORMPRICEINDEX_LOWPRICE)
+    norm_price_close = tl.load(norm_price_base_ptr_this + NORMPRICEINDEX_CLOSEPRICE)
 
     #Position Side & Has #qty_entry
     position_side = tl.where(0 < quantity,  1.0, 0.0)
@@ -148,15 +144,15 @@ def processTrade_triton_kernel(
     price_act_FSLClose = entryPrice * (1.0 - position_side*tp_fsl_close)
     price_liquidation  = entryPrice * (1.0 - position_side/leverage)
 
-    price_worst = tl.where(0 < quantity, kline_price_low,  kline_price_close)
-    price_worst = tl.where(quantity < 0, kline_price_high, price_worst)
+    price_worst = tl.where(0 < quantity, norm_price_low,  norm_price_close)
+    price_worst = tl.where(quantity < 0, norm_price_high, price_worst)
     
-    hit_liquidation = position_has & ((position_side*price_worst)       <= (position_side*price_liquidation))
-    hit_fslImmed    = position_has & ((position_side*price_worst)       <= (position_side*price_act_FSLImmed))
-    hit_fslClose    = position_has & ((position_side*kline_price_close) <= (position_side*price_act_FSLClose))
+    hit_liquidation = position_has & ((position_side*price_worst)      <= (position_side*price_liquidation))
+    hit_fslImmed    = position_has & ((position_side*price_worst)      <= (position_side*price_act_FSLImmed))
+    hit_fslClose    = position_has & ((position_side*norm_price_close) <= (position_side*price_act_FSLClose))
 
     #Exit Execution Price
-    price_exit_execution = tl.where(hit_fslImmed,    price_act_FSLImmed, kline_price_close)
+    price_exit_execution = tl.where(hit_fslImmed,    price_act_FSLImmed, norm_price_close)
     price_exit_execution = tl.where(hit_liquidation, price_liquidation,  price_exit_execution)
     
     #Quantity Reduce
@@ -194,22 +190,22 @@ def processTrade_triton_kernel(
     balance_toCommit_entry = tl.maximum(balance_toCommit-balance_committed, 0.0)
 
     quantity_entry = tl.where(forceExited == 0.0,
-                              (balance_toCommit_entry / kline_price_close)*tl.where(tefVal_this < 0, -1.0, 1.0),
+                              (balance_toCommit_entry / norm_price_close)*tl.where(tefVal_this < 0, -1.0, 1.0),
                               0.0)
     quantity_final = quantity_new + quantity_entry
     
     #Entry Price Update
     entryPrice_new = tl.where(quantity_final == 0.0, 
                               0.0, 
-                              (tl.abs(quantity_new)*entryPrice + tl.abs(quantity_entry)*kline_price_close) / tl.maximum(tl.abs(quantity_final), 1e-6))
+                              (tl.abs(quantity_new)*entryPrice + tl.abs(quantity_entry)*norm_price_close) / tl.maximum(tl.abs(quantity_final), 1e-6))
     
     #Wallet Balance Post-Entry Update
-    fee = tl.abs(quantity_entry) * kline_price_close * tradingFee
+    fee = tl.abs(quantity_entry) * norm_price_close * tradingFee
     balance_wallet = balance_wallet - fee * leverage
     balance_wallet = tl.maximum(balance_wallet, 0.0)
 
     #Margin Balance
-    balance_margin = balance_wallet + quantity_final * (kline_price_close - entryPrice_new) * leverage
+    balance_margin = balance_wallet + quantity_final * (norm_price_close - entryPrice_new) * leverage
     balance_margin = tl.maximum(balance_margin, 0.0)
 
     #Update State
