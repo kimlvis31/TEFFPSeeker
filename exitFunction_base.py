@@ -10,7 +10,7 @@ from functools import wraps
 from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
 import teffunctions.simulatorFunctions as sf
 
-ALLOCATIONRATIO = 0.90
+ALLOCATIONRATIO = 0.95
 TRADINGFEE      = 0.0005
 
 BPST_KVALUE        = 2/(100+1)
@@ -18,9 +18,9 @@ BPST_PRINTINTERVAL = 100e6
 
 _TORCHDTYPE = torch.float32
 
-NORMPRICEINDEX_HIGHPRICE  = sf.NORMPRICEINDEX_HIGHPRICE
-NORMPRICEINDEX_LOWPRICE   = sf.NORMPRICEINDEX_LOWPRICE
-NORMPRICEINDEX_CLOSEPRICE = sf.NORMPRICEINDEX_CLOSEPRICE
+PRICEINDEX_HIGHPRICE  = sf.PRICEINDEX_HIGHPRICE
+PRICEINDEX_LOWPRICE   = sf.PRICEINDEX_LOWPRICE
+PRICEINDEX_CLOSEPRICE = sf.PRICEINDEX_CLOSEPRICE
 
 TRADEPARAMS = [{'PRECISION': 4, 'LIMIT': (0.0000, 1.0000)}, #FSL Immed <NECESSARY>
                {'PRECISION': 4, 'LIMIT': (0.0000, 1.0000)}, #FSL Close <NECESSARY>
@@ -58,21 +58,27 @@ def BPST_Timer(func):
 
 #Exit Function Model ====================================================================================================================================================================================================================================
 class exitFunction():
-    def __init__(self, modelName, isSeeker, leverage, pslReentry):
+    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, pslReentry, precision_price, precision_quantity, precision_quote):
+        #[1]: System
         self.MODELNAME                 = modelName
         self.model                     = TEFFUNCTIONS_MODEL[self.MODELNAME]
         self.inputDataKeys             = TEFFUNCTIONS_INPUTDATAKEY[self.MODELNAME]
         self.modelBatchProcessFunction = TEFFUNCTIONS_BATCHPROCESSFUNCTION[self.MODELNAME]
-        self.isSeeker           = isSeeker
-        self.leverage           = leverage
-        self.pslReentry         = pslReentry
-        self.parameterBatchSize = 32
+        self.isSeeker                  = isSeeker
+        self.balance_initial           = round(balance_initial, precision_quote)
+        self.balance_allocation_max    = float('inf') if balance_allocation_max is None else round(balance_allocation_max, precision_quote)
+        self.leverage                  = leverage
+        self.pslReentry                = pslReentry
+        self.precision_price           = precision_price
+        self.precision_quantity        = precision_quantity
+        self.precision_quote           = precision_quote
+        self.parameterBatchSize        = 32
 
-        #Data Set
-        self.__data_normPrices = None
-        self.__data_analysis   = None
+        #[2]: Data Set
+        self.__data_prices   = None
+        self.__data_analysis = None
 
-        #Seeker
+        #[3]: Seeker
         self.__seeker = None
 
     def preprocessData(self, linearizedAnalysis: numpy.ndarray, indexIdentifier: dict) -> tuple[float, float] | None:
@@ -81,10 +87,10 @@ class exitFunction():
         error   = False
 
         #[2]: Data Keys Check
-        #---[2-1]: Normalized Prices
-        for lIndex, klKey in ((NORMPRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
-                              (NORMPRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
-                              (NORMPRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
+        #---[2-1]: Prices
+        for lIndex, klKey in ((PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+                              (PRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
+                              (PRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
             aIndex = indexIdentifier.get(klKey, None)
             if aIndex is None:
                 print(termcolor.colored(f"      - [ERROR] Kline Data Key '{klKey}' Not Found In The Index Identifier.", 'light_red'))
@@ -103,41 +109,38 @@ class exitFunction():
 
 
 
-        #[3]: Normalized Prices Tensor
+        #[3]: Prices Tensor
         #---[3-1]: Preparation
-        np_normPrices = numpy.full((dataLen, 3), numpy.nan, dtype=numpy.float64)
-        for lIndex, klKey in ((NORMPRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
-                              (NORMPRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
-                              (NORMPRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
+        np_prices = numpy.full((dataLen, 3), numpy.nan, dtype=numpy.float64)
+        for lIndex, klKey in ((PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+                              (PRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
+                              (PRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
             aIndex = indexIdentifier[klKey]
-            np_normPrices[:, lIndex] = linearizedAnalysis[:, aIndex]
+            np_prices[:, lIndex] = linearizedAnalysis[:, aIndex]
 
         #---[3-2]: First Valid Index & Trim
-        cp_valid_mask    = ~numpy.isnan(np_normPrices[:, NORMPRICEINDEX_CLOSEPRICE])
+        cp_valid_mask    = ~numpy.isnan(np_prices[:, PRICEINDEX_CLOSEPRICE])
         cp_valid_indices = numpy.nonzero(cp_valid_mask)[0]
         if cp_valid_indices.size == 0:
             print(termcolor.colored(f"      - [ERROR] No Valid Price Data Detected.", 'light_red'))
             return None
-        trimIdx       = cp_valid_indices[0]
-        validLen      = dataLen - trimIdx
-        validityRate  = validLen / dataLen
-        np_normPrices = np_normPrices[trimIdx:]
+        trimIdx      = cp_valid_indices[0]
+        validLen     = dataLen - trimIdx
+        validityRate = validLen / dataLen
+        np_prices = np_prices[trimIdx:]
 
         #---[3-3]: NaN Gap Forward-Fill (Last Valid Close Price)
-        totalCells = np_normPrices.size
-        nanCount   = int(numpy.isnan(np_normPrices).sum())
+        totalCells = np_prices.size
+        nanCount   = int(numpy.isnan(np_prices).sum())
         gapRate    = nanCount / totalCells
-        df = pandas.DataFrame(np_normPrices)
-        df.iloc[:, NORMPRICEINDEX_CLOSEPRICE] = df.iloc[:, NORMPRICEINDEX_CLOSEPRICE].ffill()
-        df.iloc[:, NORMPRICEINDEX_HIGHPRICE]  = df.iloc[:, NORMPRICEINDEX_HIGHPRICE].fillna(df.iloc[:, NORMPRICEINDEX_CLOSEPRICE])
-        df.iloc[:, NORMPRICEINDEX_LOWPRICE]   = df.iloc[:, NORMPRICEINDEX_LOWPRICE].fillna(df.iloc[:, NORMPRICEINDEX_CLOSEPRICE])
-        np_normPrices = df.to_numpy(copy=True)
+        df = pandas.DataFrame(np_prices)
+        df.iloc[:, PRICEINDEX_CLOSEPRICE] = df.iloc[:, PRICEINDEX_CLOSEPRICE].ffill()
+        df.iloc[:, PRICEINDEX_HIGHPRICE]  = df.iloc[:, PRICEINDEX_HIGHPRICE].fillna(df.iloc[:, PRICEINDEX_CLOSEPRICE])
+        df.iloc[:, PRICEINDEX_LOWPRICE]   = df.iloc[:, PRICEINDEX_LOWPRICE].fillna(df.iloc[:, PRICEINDEX_CLOSEPRICE])
+        np_prices = df.to_numpy(copy=True)
 
-        #---[3-4]: Normalization
-        np_normPrices /= np_normPrices[0, NORMPRICEINDEX_CLOSEPRICE]
-
-        #---[3-5]: Save Contiguous Normalized Prices Data
-        self.__data_normPrices = torch.from_numpy(np_normPrices).to(device='cuda', dtype=_TORCHDTYPE).contiguous()
+        #---[3-4]: Save Contiguous Prices Data
+        self.__data_prices = torch.from_numpy(np_prices).to(device='cuda', dtype=_TORCHDTYPE).contiguous()
 
 
 
@@ -423,7 +426,7 @@ class exitFunction():
 
         #[1]: TYPE - 'FINALBALANCE'
         if (scoring == 'FINALBALANCE'):
-            scores = 1-torch.exp(-balance_finals)
+            scores = 1-torch.exp(-balance_finals/self.balance_initial)
 
         #[2]: TYPE - 'GROWTHRATE'
         elif (scoring == 'GROWTHRATE'):
@@ -679,7 +682,7 @@ class exitFunction():
     def __processBatch(self, params: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         #[1]: Data
         size_paramsBatch = params.size(dim = 0)
-        size_dataLen     = self.__data_normPrices.size(dim = 0)
+        size_dataLen     = self.__data_prices.size(dim = 0)
         params_trade = params[:,:len(TRADEPARAMS)]
         params_model = params[:,len(TRADEPARAMS):]
 
@@ -704,12 +707,17 @@ class exitFunction():
 
         #[4]: Processing
         self.modelBatchProcessFunction(#Constants
-                                       leverage        = self.leverage,
-                                       allocationRatio = ALLOCATIONRATIO,
-                                       tradingFee      = TRADINGFEE,
+                                       balance_initial        = self.balance_initial,
+                                       balance_allocation_max = self.balance_allocation_max,
+                                       step_price             = 10 ** -self.precision_price,
+                                       step_quantity          = 10 ** -self.precision_quantity,
+                                       step_quote             = 10 ** -self.precision_quote,
+                                       leverage               = self.leverage,
+                                       allocationRatio        = ALLOCATIONRATIO,
+                                       tradingFee             = TRADINGFEE,
                                        #Base Data
-                                       data_normPrices         = self.__data_normPrices,
-                                       data_normPrices_stride  = self.__data_normPrices.stride(dim=0),
+                                       data_prices             = self.__data_prices,
+                                       data_prices_stride      = self.__data_prices.stride(dim=0),
                                        data_analysis           = self.__data_analysis,
                                        data_analysis_stride    = self.__data_analysis.stride(dim=0),
                                        params_trade_fslImmed   = params_trade[:,0].contiguous(),
@@ -741,7 +749,7 @@ class exitFunction():
             ftIndexes_bc      = balance_ftIndexes.unsqueeze(1)
             mask_validRegion  = (indexGrid >= ftIndexes_bc) & (ftIndexes_bc != -1)
             balance_bestFit_x = indexGrid - ftIndexes_bc
-            balance_bestFit_history_raw = torch.exp(balance_bestFit_growthRates.unsqueeze(1)*balance_bestFit_x + balance_bestFit_intercepts.unsqueeze(1))
+            balance_bestFit_history_raw = self.balance_initial * torch.exp(balance_bestFit_growthRates.unsqueeze(1)*balance_bestFit_x + balance_bestFit_intercepts.unsqueeze(1))
             balance_bestFit_history = torch.where(mask_validRegion, balance_bestFit_history_raw, float('nan'))
             return balance_wallet_history, balance_margin_history, balance_bestFit_history, balance_bestFit_growthRates, balance_bestFit_volatilities, nTrades
 

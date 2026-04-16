@@ -28,10 +28,15 @@ def test(config_test):
     linearizedAnalysis = numpy.load(dir_file_data)
 
     #[4]: eFunction Initialization
-    eFunction = exitFunction(modelName  = config_test['exitFunctionType'],
-                             isSeeker   = False, 
-                             leverage   = config_test['leverage'], 
-                             pslReentry = config_test['pslReentry'])
+    eFunction = exitFunction(modelName              = config_test['exitFunctionType'],
+                             isSeeker               = False, 
+                             balance_initial        = config_test['balance_initial'],
+                             balance_allocation_max = config_test['balance_allocation_max'],
+                             leverage               = config_test['leverage'], 
+                             pslReentry             = config_test['pslReentry'],
+                             precision_price        = descriptor['pricePrecision'],
+                             precision_quantity     = descriptor['quantityPrecision'],
+                             precision_quote        = descriptor['quotePrecision'])
     ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])
     if ppResult is None:
         print(termcolor.colored("[PARAMETER TEST FAILED]", 'light_red'))
@@ -57,18 +62,21 @@ def test(config_test):
     matplotlib.pyplot.plot(balance_bestFit_history[0,:].cpu(), color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=1)
 
     #[7]: Summary
-    balance_final       = balance_wallet_history[0,-1].item()
-    growthRate_interval = balance_bestFit_growthRates[0].item()
-    growthRate_daily    = math.exp(growthRate_interval*1440)        -1
-    growthRate_monthly  = math.exp(growthRate_interval*1440*30.4167)-1
-    volatility          = balance_bestFit_volatilities[0].item()
-    volatility_tMin_997 = math.exp(-volatility*3)-1
-    volatility_tMax_997 = math.exp( volatility*3)-1
+    balance_final        = balance_wallet_history[0,-1].item()
+    balance_final_growth = balance_final/config_test['balance_initial']-1
+    growthRate_interval  = balance_bestFit_growthRates[0].item()
+    growthRate_daily     = math.exp(growthRate_interval*1440)        -1
+    growthRate_monthly   = math.exp(growthRate_interval*1440*30.4167)-1
+    volatility           = balance_bestFit_volatilities[0].item()
+    volatility_tMin_997  = math.exp(-volatility*3)-1
+    volatility_tMax_997  = math.exp( volatility*3)-1
     print(f" - TEST RESULT")
-    print(f"   - Final Balance: {balance_final:.8f}")
-    if   (growthRate_daily < 0):  print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', 'light_red')} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', 'light_red')} [Monthly]")
-    elif (growthRate_daily == 0): print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
-    else:                         print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
+    if   balance_final_growth < 0:  print(f"   - Final Balance: {balance_final:.8f}", termcolor.colored(f"[{balance_final_growth*100:.3f} %]", 'light_red'))
+    elif balance_final_growth == 0: print(f"   - Final Balance: {balance_final:.8f}", termcolor.colored(f"[{balance_final_growth*100:.3f} %]", None))
+    else:                           print(f"   - Final Balance: {balance_final:.8f}", termcolor.colored(f"[+{balance_final_growth*100:.3f} %]", 'light_green'))
+    if   growthRate_daily < 0:  print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', 'light_red')} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', 'light_red')} [Monthly]")
+    elif growthRate_daily == 0: print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
+    else:                       print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
     print(f"   - Volatility:    {volatility:.8f} [Theoretical 99.7%: {termcolor.colored(f'{volatility_tMin_997*100:.3f} %', 'light_magenta')} / {termcolor.colored(f'+{volatility_tMax_997*100:.3f} %', 'light_blue')}]")
     print(f"   - nTrades:       {int(nTrades[0].item())}")
 
@@ -128,10 +136,15 @@ def seek(config_seek, process_begin_time):
         linearizedAnalysis = numpy.load(dir_file_data)
 
         #[3-5]: eFunction Initialization
-        eFunction = exitFunction(modelName  = st['exitFunctionType'],
-                                 isSeeker   = True, 
-                                 leverage   = st['leverage'],
-                                 pslReentry = st['pslReentry'])
+        eFunction = exitFunction(modelName              = st['exitFunctionType'],
+                                 isSeeker               = True, 
+                                 balance_initial        = st['balance_initial'],
+                                 balance_allocation_max = st['balance_allocation_max'],
+                                 leverage               = st['leverage'],
+                                 pslReentry             = st['pslReentry'],
+                                 precision_price        = descriptor['pricePrecision'],
+                                 precision_quantity     = descriptor['quantityPrecision'],
+                                 precision_quote        = descriptor['quotePrecision'])
         print(f"    - Preprocessing Analysis Data...")
         t_0 = time.perf_counter_ns()
         ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])
@@ -170,6 +183,8 @@ def seek(config_seek, process_begin_time):
                                         )
         print(f"    - eFunction Initialization Complete!")
         print(f"      - Exit Function Type:            {st['exitFunctionType']}")
+        print(f"      - Initial Balance:               {st['balance_initial']}")
+        print(f"      - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"      - Leverage:                      {st['leverage']}")
         print(f"      - PSL Re-entry:                  {st['pslReentry']}")
         try:    st['tradeParamConfig'] = tuple(st['tradeParamConfig'])
@@ -256,19 +271,30 @@ def seek(config_seek, process_begin_time):
                      t_processing_paramsSet_ppp_ms
                     ) = eFunction.runSeeker()
                     _bestResult = {'repetitionIndex': repetitionIndex,
-                                    'tradeParams':     _bestResult[0], 
-                                    'modelParams':     _bestResult[1], 
-                                    'finalBalance':    _bestResult[2],
-                                    'growthRate':      _bestResult[3],
-                                    'volatility':      _bestResult[4],
-                                    'score':           _bestResult[5],
-                                    'nTrades':         _bestResult[6]}
+                                   'tradeParams':     _bestResult[0], 
+                                   'modelParams':     _bestResult[1], 
+                                   'finalBalance':    _bestResult[2],
+                                   'growthRate':      _bestResult[3],
+                                   'volatility':      _bestResult[4],
+                                   'score':           _bestResult[5],
+                                   'nTrades':         _bestResult[6]}
                     #Best Result Check
                     if (bestResult is None) or (bestResult['score'] < _bestResult['score']): 
                         bestResult = _bestResult
                         processes[pIndex]['bestResult'] = bestResult
                         processes[pIndex]['records'].append(_bestResult)
                     #Progress Print
+                    balance_final        = bestResult['finalBalance']
+                    balance_final_growth = balance_final/st['balance_initial']-1
+                    if balance_final_growth < 0:
+                        bfgStr_color = "bright_red"
+                        bfgStr_sign  = ""
+                    elif balance_final_growth == 0:
+                        bfgStr_color = "white"
+                        bfgStr_sign  = ""
+                    else:
+                        bfgStr_color = "bright_green"
+                        bfgStr_sign  = "+"
                     growthRate_interval = bestResult['growthRate']
                     growthRate_daily    = math.exp(growthRate_interval*1440)        -1
                     growthRate_monthly  = math.exp(growthRate_interval*1440*30.4167)-1
@@ -288,7 +314,7 @@ def seek(config_seek, process_begin_time):
                              f"      - Parameter Set Processing Speed: {t_processing_paramsSet_sim_ms*1e3:.3f} us [SIMULATION], {t_processing_paramsSet_ppp_ms*1e3:.3f} us [PRE/POST PROCESSING]\n"
                              f"      - Trade Parameters:               {bestResult['tradeParams']}\n"
                              f"      - Model Parameters:               {bestResult['modelParams']}\n"
-                             f"      - Final Balance:                  {bestResult['finalBalance']:.8f}\n"
+                             f"      - Final Balance:                  {balance_final:.8f} [{bfgStr_color}][{bfgStr_sign}{balance_final_growth*100:.3f} %][/]\n"
                              f"      - Growth Rate:                    [{grStr_color}]{grStr_sign}{growthRate_interval:.8f} [/]/ [{grStr_color}]{grStr_sign}{growthRate_daily*100:.3f} % [/][Daily] / [{grStr_color}]{grStr_sign}{growthRate_monthly*100:.3f} % [/][Monthly]\n"
                              f"      - Volatility:                     {volatility:.8f} [Theoretical 99.7%: [bright_magenta]{volatility_tMin_997*100:.3f} % [/]/ [bright_cyan]{volatility_tMax_997*100:.3f} %][/]\n"
                              f"      - Score:                          {bestResult['score']:.8f}\n"
@@ -373,6 +399,8 @@ def read(rCord_read):
 
         #[4-6]: Process Parameters
         print(f"    - Exit Function Type:            {st['exitFunctionType']}")
+        print(f"    - Initial Balance:               {st['balance_initial']}")
+        print(f"    - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"    - Leverage:                      {st['leverage']}")
         print(f"    - PSL Re-Entry:                  {st['pslReentry']}")
         print(f"    - Trade Parameter Configuration: {tuple(st['tradeParamConfig'])}")
@@ -399,28 +427,38 @@ def read(rCord_read):
         print(f"    - Termination Threshold:         {st['terminationThreshold']}")
 
         #[4-7]: Seeker Best Result
+        pResult_br = pResult['bestResult']
         print(f"    - Seeker Best Result:")
-        print(f"      - Trade Parameters: {tuple(pResult['bestResult']['tradeParams'])}")
-        print(f"      - Model Parameters: {tuple(pResult['bestResult']['modelParams'])}")
-        print(f"      - Final Balance:    {pResult['bestResult']['finalBalance']:.8f}")
-        growthRate_interval = pResult['bestResult']['growthRate']
+        print(f"      - Trade Parameters: {tuple(pResult_br['tradeParams'])}")
+        print(f"      - Model Parameters: {tuple(pResult_br['modelParams'])}")
+        balance_final        = pResult_br['finalBalance']
+        balance_final_growth = balance_final/st['balance_initial']-1
+        if   balance_final_growth < 0:  print(f"      - Final Balance:    {balance_final:.8f}", termcolor.colored(f"[{balance_final_growth*100:.3f} %]", 'light_red'))
+        elif balance_final_growth == 0: print(f"      - Final Balance:    {balance_final:.8f}", termcolor.colored(f"[{balance_final_growth*100:.3f} %]", None))
+        else:                           print(f"      - Final Balance:    {balance_final:.8f}", termcolor.colored(f"[+{balance_final_growth*100:.3f} %]", 'light_green'))
+        growthRate_interval = pResult_br['growthRate']
         growthRate_daily    = math.exp(growthRate_interval*1440)        -1
         growthRate_monthly  = math.exp(growthRate_interval*1440*30.4167)-1
-        volatility = pResult['bestResult']['volatility']
+        volatility = pResult_br['volatility']
         volatility_tMin_997 = math.exp(-volatility*3)-1
         volatility_tMax_997 = math.exp( volatility*3)-1
         if   (growthRate_daily < 0):  print(f"      - Growth Rate:      {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', 'light_red')} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', 'light_red')} [Monthly]")
         elif (growthRate_daily == 0): print(f"      - Growth Rate:      {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
         else:                         print(f"      - Growth Rate:      {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
         print(f"      - Volatility:       {volatility:.8f} [Theoretical 99.7%: {termcolor.colored(f'{volatility_tMin_997*100:.3f} %', 'light_magenta')} / {termcolor.colored(f'+{volatility_tMax_997*100:.3f} %', 'light_blue')}]")
-        print(f"      - Score:            {pResult['bestResult']['score']:.8f}")
-        print(f"      - nTrades:          {pResult['bestResult']['nTrades']}")
+        print(f"      - Score:            {pResult_br['score']:.8f}")
+        print(f"      - nTrades:          {pResult_br['nTrades']}")
 
         #[4-8]: eFunction Initialization
-        eFunction = exitFunction(modelName  = st['exitFunctionType'],
-                                 isSeeker   = False, 
-                                 leverage   = st['leverage'],
-                                 pslReentry = st['pslReentry'])
+        eFunction = exitFunction(modelName              = st['exitFunctionType'],
+                                 isSeeker               = False, 
+                                 balance_initial        = st['balance_initial'],
+                                 balance_allocation_max = st['balance_allocation_max'],
+                                 leverage               = st['leverage'],
+                                 pslReentry             = st['pslReentry'],
+                                 precision_price        = descriptor['pricePrecision'],
+                                 precision_quantity     = descriptor['quantityPrecision'],
+                                 precision_quote        = descriptor['quotePrecision'])
         print(f"    - Preprocessing Analysis Data...")
         t_0 = time.perf_counter_ns()
         ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])

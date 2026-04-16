@@ -33,12 +33,17 @@ def PROCESSBATCH(**kwargs):
 @triton.jit
 def processBatch(
     #Constants
-    leverage:        tl.constexpr,
-    allocationRatio: tl.constexpr,
-    tradingFee:      tl.constexpr,
+    balance_initial:        tl.constexpr,
+    balance_allocation_max: tl.constexpr,
+    step_price:             tl.constexpr,
+    step_quantity:          tl.constexpr,
+    step_quote:             tl.constexpr,
+    leverage:               tl.constexpr,
+    allocationRatio:        tl.constexpr,
+    tradingFee:             tl.constexpr,
     #Base Data
-    data_normPrices,
-    data_normPrices_stride: tl.constexpr,
+    data_prices,
+    data_prices_stride: tl.constexpr,
     data_analysis,
     data_analysis_stride: tl.constexpr,
     params_trade_fslImmed,
@@ -80,11 +85,13 @@ def processBatch(
      bt_sum_xy,
      bt_sum_squared
     ) = sf.initializeSimulation_triton_kernel(
-        params_trade_fslImmed = params_trade_fslImmed,
-        params_trade_fslClose = params_trade_fslClose,
-        allocationRatio       = allocationRatio,
-        size_paramsBatch      = size_paramsBatch, 
-        size_block            = size_block
+        balance_initial        = balance_initial,
+        balance_allocation_max = balance_allocation_max,
+        params_trade_fslImmed  = params_trade_fslImmed,
+        params_trade_fslClose  = params_trade_fslClose,
+        allocationRatio        = allocationRatio,
+        size_paramsBatch       = size_paramsBatch, 
+        size_block             = size_block
         )
 
     #Model Parameters
@@ -146,13 +153,18 @@ def processBatch(
             size_dataLen = size_dataLen,
             SEEKERMODE   = SEEKERMODE,
             #Constants
-            leverage        = leverage,
-            allocationRatio = allocationRatio,
-            tradingFee      = tradingFee,
+            balance_initial        = balance_initial,
+            balance_allocation_max = balance_allocation_max,
+            step_price             = step_price,
+            step_quantity          = step_quantity,
+            step_quote             = step_quote,
+            leverage               = leverage,
+            allocationRatio        = allocationRatio,
+            tradingFee             = tradingFee,
             #Base Data
             loop_index              = loop_index,
-            data_normPrices         = data_normPrices,
-            data_normPrices_stride  = data_normPrices_stride,
+            data_prices             = data_prices,
+            data_prices_stride      = data_prices_stride,
             tp_fsl_immed            = tp_fsl_immed, 
             tp_fsl_close            = tp_fsl_close,
             params_trade_pslReentry = params_trade_pslReentry,

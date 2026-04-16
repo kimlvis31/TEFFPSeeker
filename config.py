@@ -2,35 +2,39 @@
 """
  * This parameter defines the model to test with a specific set of parameters.
 """
-PARAMETERTEST = {'analysisData':     'USC1_ae\\USC1_BTCUSDT',
-                 'exitFunctionType': 'SPDDEFAULT',
-                 'leverage':         1,
-                 'tradeParams':      (1.0000, 1.0000),
-                 'modelParams':      (0.0000, 1.000000, 1.000000, 0.0000, 1.000000, 1.000000),
-                 'pslReentry':       False,
+PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
+                 'exitFunctionType':       'SPDDEFAULT',
+                 'balance_initial':        100_000,
+                 'balance_allocation_max': 1000,
+                 'leverage':               1,
+                 'tradeParams':            (1.0000, 1.0000),
+                 'modelParams':            (0.0000, 1.000000, 1.000000, 0.0000, 1.000000, 1.000000),
+                 'pslReentry':             False,
                 }
-"""
-PARAMETERTEST = {'analysisData':     'USC7_ae\\USC7_BTCUSDT',
-                 'exitFunctionType': 'MMACDLONGDEFAULT',
-                 'tradeParams':      (0.0061, 1.0),
-                 'modelParams':      (4.9633, 5.61, -0.9308, 0.380649, 1.000000),
-                 'pslReentry':       False,
+PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
+                 'exitFunctionType':       'MMACDLONGDEFAULT',
+                 'balance_initial':        100_000,
+                 'balance_allocation_max': 1000,
+                 'tradeParams':            (0.0061, 1.0),
+                 'modelParams':            (4.9633, 5.61, -0.9308, 0.380649, 1.000000),
+                 'pslReentry':             False,
                 }
-"""
 
 #[2]: Seeker Targets
 """
  * This parameter defines the model 
 """
-SEEKERTARGETS = [{'analysisData':     'USC1_ae\\USC1_BTCUSDT',
-                  'exitFunctionType': 'SPDDEFAULT',
-                  'leverage':         1,
-                  'pslReentry':       False,
-                  'tradeParamConfig': (None, None),
-                  'modelParamConfig': (None, None, None, None, None, None),
+SEEKERTARGETS = [{'analysisData':             'USC0_ae\\USC0_BTCUSDT',
+                  'exitFunctionType':         'MMACDLONGDEFAULT',
+                  'balance_initial':          100_000,
+                  'balance_allocation_max':   1000,
+                  'leverage':                 1,
+                  'pslReentry':               False,
+                  'tradeParamConfig':         (None, None),
+                  'modelParamConfig':         (None, None, None, None, None),
                   'nSeekerPoints':            1000,
                   'parameterBatchSize':       None,
-                  'nRepetition':              1,
+                  'nRepetition':              5,
                   'learningRate':             0.001,
                   'deltaRatio':               0.10,
                   'beta_velocity':            0.999,
@@ -74,7 +78,7 @@ SEEKERTARGETS = [{'analysisData':     'USC1_ae\\USC1_BTCUSDT',
  * This parameter defines the target TEF function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
  * Example: _RCODETOREAD = 'teffps_result_1768722056'
 """
-RCODETOREAD = 'teffps_result_1776309399'
+RCODETOREAD = 'teffps_result_1776326209'
 
 #[4]: Mode
 """
