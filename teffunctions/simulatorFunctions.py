@@ -140,100 +140,98 @@ def processTrade_triton_kernel(
     balance_margin_history
     ):
     #[1]: Trade Simulation ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    #TEF Range Control
+    #---[1-1]: TEF Range Control
     tefVal_this = tl.minimum(tefVal_this,  1.0)
     tefVal_this = tl.maximum(tefVal_this, -1.0)
 
-    #Prices
+    #---[1-2]: Prices
     price_base_ptr_this = data_prices + (loop_index * data_prices_stride)
     price_high  = tl.load(price_base_ptr_this + PRICEINDEX_HIGHPRICE)
     price_low   = tl.load(price_base_ptr_this + PRICEINDEX_LOWPRICE)
     price_close = tl.load(price_base_ptr_this + PRICEINDEX_CLOSEPRICE)
 
-    #Position Side & Has #qty_entry
+    #---[1-3]: Position Side & Has #qty_entry
     position_side = tl.where(0 < quantity,  1.0, 0.0)
     position_side = tl.where(quantity < 0, -1.0, position_side)
     position_has = (quantity != 0)
 
-    #Exit Conditions
-    price_act_FSLImmed = entryPrice * (1.0 - position_side*tp_fsl_immed)
-    price_act_FSLClose = entryPrice * (1.0 - position_side*tp_fsl_close)
-    price_liquidation  = entryPrice * (1.0 - position_side/leverage)
-
+    #---[1-4]: Exit Conditions
+    price_act_FSLImmed = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_immed), step_price)
+    price_act_FSLClose = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_close), step_price)
+    price_liquidation  = round_to_step(entryPrice * (1.0 - position_side/leverage),     step_price)
     price_worst = tl.where(0 < quantity, price_low,  price_close)
     price_worst = tl.where(quantity < 0, price_high, price_worst)
-    
-    hit_liquidation = position_has & ((position_side*price_worst) <= (position_side*price_liquidation))
-    hit_fslImmed    = position_has & ((position_side*price_worst) <= (position_side*price_act_FSLImmed))
-    hit_fslClose    = position_has & ((position_side*price_close) <= (position_side*price_act_FSLClose))
+    hit_liquidation  = position_has & ((position_side*price_worst) <= (position_side*price_liquidation))
+    hit_fslImmed     = position_has & ((position_side*price_worst) <= (position_side*price_act_FSLImmed))
+    hit_fslClose     = position_has & ((position_side*price_close) <= (position_side*price_act_FSLClose))
+    status_forceExit = hit_liquidation | hit_fslImmed | hit_fslClose
+    status_clear     = (position_side != tefDir_this)
 
-    #Exit Execution Price
-    price_exit_execution = tl.where(hit_fslImmed,    price_act_FSLImmed, price_close)
-    price_exit_execution = tl.where(hit_liquidation, price_liquidation,  price_exit_execution)
+    #---[1-5]: Exit Execution Price
+    dist_fslImmed        = tl.abs(entryPrice - price_act_FSLImmed)
+    dist_liq             = tl.abs(entryPrice - price_liquidation)
+    price_intra_first    = tl.where(dist_fslImmed < dist_liq, price_act_FSLImmed, price_liquidation)
+    hit_any_intra        = hit_liquidation | hit_fslImmed
+    price_exit_execution = price_close
+    price_exit_execution = tl.where(hit_fslClose, price_act_FSLClose, price_exit_execution)
+    price_exit_execution = tl.where(hit_any_intra, price_intra_first, price_exit_execution)
     price_exit_execution = round_to_step(price_exit_execution, step_price)
     
-    #Quantity Reduce
-    balance_committed = tl.abs(quantity)  * entryPrice
+    #---[1-6]: Quantity Reduce
     balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
+    balance_committed = tl.abs(quantity) * entryPrice / leverage
+    balance_toExit    = tl.maximum(balance_committed-balance_toCommit, 0.0)
+    quantity_reduce   = tl.where(status_forceExit | status_clear,
+                                 tl.abs(quantity),
+                                 floor_to_step(balance_toExit * leverage / tl.maximum(entryPrice, 1e-12), step_quantity))
+    profit       = round_to_step(quantity_reduce * (price_exit_execution - entryPrice) * position_side, step_quote)
+    fee          = round_to_step(quantity_reduce * price_exit_execution * tradingFee,                   step_quote)
+    quantity_new = round_to_step(quantity-quantity_reduce*position_side, step_quantity)
 
-    status_forceExit   = hit_liquidation | hit_fslImmed | hit_fslClose
-    status_clear       = (position_side != tefDir_this)
-    status_partialExit = (balance_toCommit - balance_committed) < 0
-
-    quantity_new = tl.where(position_has & status_partialExit, (balance_toCommit / entryPrice) * position_side, quantity)
-    quantity_new = tl.where(status_forceExit | status_clear,   0.0,                                             quantity_new)
-    quantity_new = floor_to_step(quantity_new, step_quantity)
-
-    quantity_delta = quantity_new - quantity
-    profit         = quantity_delta * (entryPrice-price_exit_execution)
-    fee            = tl.abs(quantity_delta) * price_exit_execution * tradingFee
-
-    #Wallet Balance Post-Exit Update
-    balance_wallet = balance_wallet + (profit - fee) * leverage
+    #---[1-7]: Post-Exit Wallet & Allocated Balance Update
+    balance_wallet = balance_wallet + (profit - fee)
     balance_wallet = tl.maximum(balance_wallet, 0.0)
-    balance_wallet = floor_to_step(balance_wallet, step_quote)
-
-    #Allocated Balance Update
+    balance_wallet = round_to_step(balance_wallet, step_quote)
     balance_allocated = tl.where(quantity_new == 0.0, 
                                  tl.minimum(balance_wallet*allocationRatio, balance_allocation_max), 
                                  balance_allocated)
     
-    #Force Exit State Update
+    #---[1-8]: Force Exit State Update
     if not params_trade_pslReentry:
         forceExited = tl.where(status_forceExit,           position_side, forceExited)
         forceExited = tl.where(forceExited != tefDir_this, 0.0,           forceExited)
 
-    #Quantity Increase
-    balance_committed = tl.abs(quantity_new) * entryPrice
+    #---[1-9]: Quantity Increase
     balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
-    balance_toCommit_entry = tl.maximum(balance_toCommit-balance_committed, 0.0)
-
+    balance_committed = tl.abs(quantity_new) * entryPrice / leverage
+    balance_toEnter   = tl.maximum(balance_toCommit-balance_committed, 0.0)
     quantity_entry = tl.where(forceExited == 0.0,
-                              (balance_toCommit_entry / price_close)*tl.where(tefVal_this < 0, -1.0, 1.0),
+                              floor_to_step(balance_toEnter * leverage / price_close, step_quantity),
                               0.0)
-    quantity_entry = floor_to_step(quantity_entry, step_quantity)
-    quantity_final = quantity_new + quantity_entry
+    fee            = round_to_step(tl.abs(quantity_entry) * price_close * tradingFee, step_quote)
+    quantity_final = round_to_step(quantity_new + quantity_entry*tefDir_this, step_quantity)
     
-    #Entry Price Update
+    #---[1-10]: Entry Price Update
     entryPrice_new = tl.where(quantity_final == 0.0, 
                               0.0, 
-                              (tl.abs(quantity_new)*entryPrice + tl.abs(quantity_entry)*price_close) / tl.maximum(tl.abs(quantity_final), 1e-6))
+                              (tl.abs(quantity_new)*entryPrice + quantity_entry*price_close) / tl.maximum(tl.abs(quantity_final), 1e-6))
     entryPrice_new = round_to_step(entryPrice_new, step_price)
     
-    #Wallet Balance Post-Entry Update
-    fee = tl.abs(quantity_entry) * price_close * tradingFee
-    balance_wallet = balance_wallet - fee * leverage
+    #---[1-11]: Post-Entry Wallet Balance Update
+    balance_wallet = round_to_step(balance_wallet - fee, 
+                                   step_quote)
     balance_wallet = tl.maximum(balance_wallet, 0.0)
-    balance_wallet = floor_to_step(balance_wallet, step_quote)
 
-    #Margin Balance
-    balance_margin = balance_wallet + quantity_final * (price_close - entryPrice_new) * leverage
+    #---[1-12]: Margin Balance
+    balance_margin = round_to_step(balance_wallet + quantity_final * (price_close - entryPrice_new), 
+                                   step_quote)
     balance_margin = tl.maximum(balance_margin, 0.0)
-    balance_margin = floor_to_step(balance_margin, step_quote)
 
-    #Update State
+    #---[1-13]: Update State
     balance_ftIndex = tl.where((balance_ftIndex == -1) & (quantity_final != quantity), loop_index, balance_ftIndex)
-    nTrades         = tl.where(quantity_final != quantity, nTrades+1, nTrades)
+    trade_exit  = tl.where(0.0 < quantity_reduce, 1, 0)
+    trade_entry = tl.where(0.0 < quantity_entry,  1, 0)
+    nTrades     = nTrades + trade_exit + trade_entry
     quantity   = quantity_final
     entryPrice = entryPrice_new
     # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------

@@ -3,20 +3,21 @@
  * This parameter defines the model to test with a specific set of parameters.
 """
 PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
+                 'exitFunctionType':       'MMACDLONGDEFAULT',
+                 'balance_initial':        100_000,
+                 'balance_allocation_max': 1000,
+                 'leverage':               1,
+                 'tradeParams':            (1.0000, 1.0000),
+                 'modelParams':            (1.1917, 1.0, -0.025, 0.090273, 0.089408),
+                 'pslReentry':             False,
+                }
+PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
                  'exitFunctionType':       'SPDDEFAULT',
                  'balance_initial':        100_000,
                  'balance_allocation_max': 1000,
                  'leverage':               1,
                  'tradeParams':            (1.0000, 1.0000),
-                 'modelParams':            (0.0000, 1.000000, 1.000000, 0.0000, 1.000000, 1.000000),
-                 'pslReentry':             False,
-                }
-PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
-                 'exitFunctionType':       'MMACDLONGDEFAULT',
-                 'balance_initial':        100_000,
-                 'balance_allocation_max': 1000,
-                 'tradeParams':            (0.0061, 1.0),
-                 'modelParams':            (4.9633, 5.61, -0.9308, 0.380649, 1.000000),
+                 'modelParams':            (-0.4825, 0.173852, 0.741636, -0.3693, 0.12492, 0.715351),
                  'pslReentry':             False,
                 }
 
@@ -78,7 +79,7 @@ SEEKERTARGETS = [{'analysisData':             'USC0_ae\\USC0_BTCUSDT',
  * This parameter defines the target TEF function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
  * Example: _RCODETOREAD = 'teffps_result_1768722056'
 """
-RCODETOREAD = 'teffps_result_1776326209'
+RCODETOREAD = 'teffps_result_1776324760'
 
 #[4]: Mode
 """
@@ -86,4 +87,4 @@ RCODETOREAD = 'teffps_result_1776326209'
  * 
  * Available Modes: 'TEST'/'SEEK'/'READ'
 """
-MODE = 'READ'
+MODE = 'TEST'
