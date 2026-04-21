@@ -3,7 +3,7 @@
  * This parameter defines the model to test with a specific set of parameters.
 """
 PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
-                 'exitFunctionType':       'MMACDLONGDEFAULT',
+                 'exitFunctionType':       'MMACDDEFAULT',
                  'balance_initial':        100_000,
                  'balance_allocation_max': 1000,
                  'leverage':               1,
@@ -26,7 +26,7 @@ PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
  * This parameter defines the model 
 """
 SEEKERTARGETS = [{'analysisData':             'USC0_ae\\USC0_BTCUSDT',
-                  'exitFunctionType':         'MMACDLONGDEFAULT',
+                  'exitFunctionType':         'MMACDDEFAULT',
                   'balance_initial':          100_000,
                   'balance_allocation_max':   1000,
                   'leverage':                 1,
