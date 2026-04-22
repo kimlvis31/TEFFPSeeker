@@ -25,7 +25,7 @@ __pycache__/
 !teffunctions/.gitkeep
 teffunctions/*.py
 !teffunctions/simulatorFunctions.py
-!teffunctions/teff_MMACDLONGDEFAULT.py
+!teffunctions/teff_MMACDDEFAULT.py
 !teffunctions/teff_SPDDEFAULT.py
 
 !linearizedAnalysis
