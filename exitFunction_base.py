@@ -21,6 +21,7 @@ TRADINGFEE      = 0.0005
 BPST_KVALUE        = 2/(100+1)
 BPST_PRINTINTERVAL = 100e6
 
+PRICEINDEX_OPENPRICE  = sf.PRICEINDEX_OPENPRICE
 PRICEINDEX_HIGHPRICE  = sf.PRICEINDEX_HIGHPRICE
 PRICEINDEX_LOWPRICE   = sf.PRICEINDEX_LOWPRICE
 PRICEINDEX_CLOSEPRICE = sf.PRICEINDEX_CLOSEPRICE
@@ -91,7 +92,8 @@ class exitFunction():
 
         #[2]: Data Keys Check
         #---[2-1]: Prices
-        for lIndex, klKey in ((PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+        for lIndex, klKey in ((PRICEINDEX_OPENPRICE,  'KLINE_OPENPRICE'),
+                              (PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
                               (PRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
                               (PRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
             aIndex = indexIdentifier.get(klKey, None)
@@ -114,8 +116,9 @@ class exitFunction():
 
         #[3]: Prices Tensor
         #---[3-1]: Preparation
-        np_prices = numpy.full((dataLen, 3), numpy.nan, dtype=numpy.float64)
-        for lIndex, klKey in ((PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
+        np_prices = numpy.full((dataLen, 4), numpy.nan, dtype=numpy.float64)
+        for lIndex, klKey in ((PRICEINDEX_OPENPRICE,  'KLINE_OPENPRICE'),
+                              (PRICEINDEX_HIGHPRICE,  'KLINE_HIGHPRICE'),
                               (PRICEINDEX_LOWPRICE,   'KLINE_LOWPRICE'),
                               (PRICEINDEX_CLOSEPRICE, 'KLINE_CLOSEPRICE')):
             aIndex = indexIdentifier[klKey]
@@ -138,6 +141,7 @@ class exitFunction():
         gapRate    = nanCount / totalCells
         df = pandas.DataFrame(np_prices)
         df.iloc[:, PRICEINDEX_CLOSEPRICE] = df.iloc[:, PRICEINDEX_CLOSEPRICE].ffill()
+        df.iloc[:, PRICEINDEX_OPENPRICE]  = df.iloc[:, PRICEINDEX_OPENPRICE].fillna(df.iloc[:, PRICEINDEX_CLOSEPRICE])
         df.iloc[:, PRICEINDEX_HIGHPRICE]  = df.iloc[:, PRICEINDEX_HIGHPRICE].fillna(df.iloc[:, PRICEINDEX_CLOSEPRICE])
         df.iloc[:, PRICEINDEX_LOWPRICE]   = df.iloc[:, PRICEINDEX_LOWPRICE].fillna(df.iloc[:, PRICEINDEX_CLOSEPRICE])
         np_prices = df.to_numpy(copy=True)
