@@ -274,7 +274,7 @@ def getTEFValue(
     dist  = tl.abs(y_norm-mp_delta)
     tefVal_this_abs = dist/tl.maximum(width, 1e-9)*mp_strength_eff
     tefVal_this_abs = tl.where(width == 0.0, 0.0, tefVal_this_abs)
-    tefVal_this_abs = tl.round(tefVal_this_abs*1e6)/1e6
+    tefVal_this_abs = tl.floor(tefVal_this_abs * 1e6 + 0.5) / 1e6
 
     #---[4-4]: TEF Value Cyclic Maximum
     st_tefVal_absMax = tl.where(cycleReset, tefVal_this_abs, tl.maximum(st_tefVal_absMax_prev, tefVal_this_abs))
