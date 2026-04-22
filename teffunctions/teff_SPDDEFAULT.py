@@ -265,6 +265,7 @@ def getTEFValue(
                                tl.maximum((1-dist/tl.maximum(mp_length_eff, 1e-6))*mp_strength_eff, 0.0),
                                0.0)
     tefVal_this_abs = tl.where(mp_length_eff == 0.0, 0.0, tefVal_this_abs)
+    tefVal_this_abs = tl.round(tefVal_this_abs*1e6)/1e6
     #---[4-3]: Cyclic Minimum
     tefVal_this_abs = tl.where(cycleReset, tefVal_this_abs, tl.minimum(tefVal_this_abs, tl.abs(st_tefVal_prev)))
     #---[4-4]: Direction
