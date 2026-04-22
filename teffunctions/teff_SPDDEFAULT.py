@@ -1,5 +1,6 @@
 import triton
 import triton.language as tl
+from triton.language.extra import libdevice as tl_ld
 from . import simulatorFunctions as sf
 
 """
@@ -104,7 +105,7 @@ def processBatch(
     mp_length_L   = tl.load(mp_base_ptr + 5, mask = mask)
     
     #Model State Trackers
-    st_tefVal_prev = tl.full([size_block,],  0.0, dtype=tl.float32)
+    st_tefVal_prev = tl.full([size_block,],  0.0, dtype=sf.DTYPE)
     st_lst_prev    = -1.0
 
     #Loop

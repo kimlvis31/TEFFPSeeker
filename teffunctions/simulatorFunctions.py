@@ -1,5 +1,10 @@
 import triton
 import triton.language as tl
+from config import DATATYPE_PRECISION
+
+if   DATATYPE_PRECISION == 32: DTYPE = tl.float32
+elif DATATYPE_PRECISION == 64: DTYPE = tl.float64
+else:                          DTYPE = tl.float32
 
 TRITON_AUTOTUNE_CONFIGURATIONS = [triton.Config({'size_block': 32},  num_warps= 1, num_stages=2),
                                   triton.Config({'size_block': 32},  num_warps= 1, num_stages=3),
@@ -58,19 +63,19 @@ def initializeSimulation_triton_kernel(
     tp_fsl_close = tl.load(pointer = params_trade_fslClose + offsets, mask = mask)
 
     #[4]: Trade Simulation State
-    balance_wallet    = tl.zeros(shape = [size_block], dtype = tl.float32) + balance_initial
+    balance_wallet    = tl.zeros(shape = [size_block], dtype = DTYPE) + balance_initial
     balance_allocated = tl.minimum(balance_wallet * allocationRatio, balance_allocation_max)
-    balance_margin    = tl.zeros(shape = [size_block], dtype = tl.float32) + balance_initial
+    balance_margin    = tl.zeros(shape = [size_block], dtype = DTYPE) + balance_initial
     balance_ftIndex   = tl.full(shape = [size_block], value = -1, dtype = tl.int32)
-    quantity          = tl.zeros(shape = [size_block,], dtype = tl.float32)
-    entryPrice        = tl.zeros(shape = [size_block,], dtype = tl.float32)
-    forceExited       = tl.zeros(shape = [size_block,], dtype = tl.float32)
-    nTrades           = tl.zeros(shape = [size_block,], dtype = tl.float32)
+    quantity          = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    entryPrice        = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    forceExited       = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    nTrades           = tl.zeros(shape = [size_block,], dtype = DTYPE)
 
     #[5]: Balance Trend
-    bt_sum         = tl.zeros(shape = [size_block,], dtype = tl.float32)
-    bt_sum_squared = tl.zeros(shape = [size_block,], dtype = tl.float32)
-    bt_sum_xy      = tl.zeros(shape = [size_block,], dtype = tl.float32)
+    bt_sum         = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    bt_sum_squared = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    bt_sum_xy      = tl.zeros(shape = [size_block,], dtype = DTYPE)
 
     #[6]: Return Initialized Contents
     return (offsets,
@@ -238,7 +243,7 @@ def processTrade_triton_kernel(
 
     #[2]: Balance Trend Trackers ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     first_trade_occurred = (0 <= balance_ftIndex)
-    bt_val_x = tl.where(first_trade_occurred, (loop_index-balance_ftIndex).to(tl.float32), 0.0)
+    bt_val_x = tl.where(first_trade_occurred, (loop_index-balance_ftIndex).to(DTYPE), 0.0)
     bt_val_y = tl.where(first_trade_occurred, 
                         tl.log(tl.maximum(balance_wallet, 1e-9) / balance_initial),
                         0.0)
@@ -286,7 +291,7 @@ def evaluateBalanceTrend_triton_kernel(
     balance_ftIndexes,
     nTrades_rb
     ):
-    bt_n      = (size_dataLen-balance_ftIndex).to(tl.float32)
+    bt_n      = (size_dataLen-balance_ftIndex).to(DTYPE)
     bt_valid  = (0 <= balance_ftIndex) & (1.0 < bt_n)
     bt_n_safe = tl.where(bt_valid, bt_n, 1.0)
 

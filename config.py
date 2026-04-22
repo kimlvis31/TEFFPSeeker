@@ -1,17 +1,21 @@
-#[1]: Parameter Test
+#[1]: System Parameter
+DATATYPE_PRECISION = 32 #Normally set to '32' for seeking. Use '64' only for precision verification against CPU-run simulations.
+
+#[2]: Parameter Test
 """
  * This parameter defines the model to test with a specific set of parameters.
 """
-PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
+PARAMETERTEST = {'analysisData':           'USC0_ae_0\\USC0_0_BTCUSDT',
                  'exitFunctionType':       'MMACDDEFAULT',
                  'balance_initial':        100_000,
                  'balance_allocation_max': 1000,
                  'leverage':               1,
-                 'tradeParams':            (1.0000, 1.0000),
-                 'modelParams':            (1.1917, 1.0, -0.025, 0.090273, 0.089408, 0.8000),
+                 'tradeParams':            (0.6626, 0.0),
+                 'modelParams':            (3.5880, 1.30, -0.2483, 0.141359, 0.134799, 0.1730),
                  'pslReentry':             False,
                 }
-PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
+"""
+PARAMETERTEST = {'analysisData':           'USC0_ae_0\\USC0_0_BTCUSDT',
                  'exitFunctionType':       'SPDDEFAULT',
                  'balance_initial':        100_000,
                  'balance_allocation_max': 1000,
@@ -20,12 +24,15 @@ PARAMETERTEST = {'analysisData':           'USC0_ae\\USC0_BTCUSDT',
                  'modelParams':            (-0.4825, 0.173852, 0.741636, -0.3693, 0.12492, 0.715351),
                  'pslReentry':             False,
                 }
+"""
 
-#[2]: Seeker Targets
+
+
+#[3]: Seeker Targets
 """
  * This parameter defines the model 
 """
-SEEKERTARGETS = [{'analysisData':             'USC0_ae\\USC0_BTCUSDT',
+SEEKERTARGETS = [{'analysisData':             'USC0_ae_0\\USC0_0_BTCUSDT',
                   'exitFunctionType':         'MMACDDEFAULT',
                   'balance_initial':          100_000,
                   'balance_allocation_max':   1000,
@@ -74,17 +81,21 @@ SEEKERTARGETS = [{'analysisData':             'USC0_ae\\USC0_BTCUSDT',
                 ],
 """
 
-#[3]: Result Code to Read
+
+
+#[4]: Result Code to Read
 """
  * This parameter defines the target TEF function optimized parameters search process result to read. The target is the result folder name under the 'results' folder.
  * Example: _RCODETOREAD = 'teffps_result_1768722056'
 """
-RCODETOREAD = 'teffps_result_1776324760'
+RCODETOREAD = 'teffps_result_1776846287'
 
-#[4]: Mode
+
+
+#[5]: Mode
 """
 <MODE>
  * 
  * Available Modes: 'TEST'/'SEEK'/'READ'
 """
-MODE = 'TEST'
+MODE = 'READ'

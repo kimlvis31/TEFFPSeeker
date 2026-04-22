@@ -7,16 +7,19 @@ import time
 import pandas
 from functools import wraps
 
-from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
 import teffunctions.simulatorFunctions as sf
+from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
+from config import DATATYPE_PRECISION
+
+if   DATATYPE_PRECISION == 32: TLDTYPE = torch.float32
+elif DATATYPE_PRECISION == 64: TLDTYPE = torch.float64
+else:                          TLDTYPE = torch.float32
 
 ALLOCATIONRATIO = 0.95
 TRADINGFEE      = 0.0005
 
 BPST_KVALUE        = 2/(100+1)
 BPST_PRINTINTERVAL = 100e6
-
-_TORCHDTYPE = torch.float32
 
 PRICEINDEX_HIGHPRICE  = sf.PRICEINDEX_HIGHPRICE
 PRICEINDEX_LOWPRICE   = sf.PRICEINDEX_LOWPRICE
@@ -140,7 +143,7 @@ class exitFunction():
         np_prices = df.to_numpy(copy=True)
 
         #---[3-4]: Save Contiguous Prices Data
-        self.__data_prices = torch.from_numpy(np_prices).to(device='cuda', dtype=_TORCHDTYPE).contiguous()
+        self.__data_prices = torch.from_numpy(np_prices).to(device='cuda', dtype=TLDTYPE).contiguous()
 
 
 
@@ -153,7 +156,7 @@ class exitFunction():
             data_analysis[:, lIndex] = torch.from_numpy(la_trimmed[:, aIndex]).to(device='cuda', dtype=torch.float64)
 
         #---[4-2]: Save Contiguous Analysis Data
-        self.__data_analysis = data_analysis.to(dtype=_TORCHDTYPE).contiguous()
+        self.__data_analysis = data_analysis.to(dtype=TLDTYPE).contiguous()
 
 
 
@@ -277,7 +280,7 @@ class exitFunction():
         nParams                = len(paramConfig_full)
 
         #[3]: Rounding Tensor
-        params_rounding_factors = 10.0 ** torch.tensor([pDesc['PRECISION'] for pDesc in paramDescriptions_full], device='cuda', dtype=_TORCHDTYPE).unsqueeze(0)
+        params_rounding_factors = 10.0 ** torch.tensor([pDesc['PRECISION'] for pDesc in paramDescriptions_full], device='cuda', dtype=TLDTYPE).unsqueeze(0)
 
         #[4]: Parameter Configuration Fixed Value Mask Generation
         params_fixed_mask   = torch.zeros(nParams, dtype=torch.bool,    device='cuda')
@@ -289,15 +292,15 @@ class exitFunction():
         params_fixed_values = (torch.round(params_fixed_values * params_rounding_factors) / params_rounding_factors).squeeze(0)
 
         #[5]: Parameter Range Tensors
-        params_min = torch.tensor([[pDesc['LIMIT'][0] for pDesc in paramDescriptions_full]], device='cuda', dtype = _TORCHDTYPE)
-        params_max = torch.tensor([[pDesc['LIMIT'][1] for pDesc in paramDescriptions_full]], device='cuda', dtype = _TORCHDTYPE)
+        params_min = torch.tensor([[pDesc['LIMIT'][0] for pDesc in paramDescriptions_full]], device='cuda', dtype = TLDTYPE)
+        params_max = torch.tensor([[pDesc['LIMIT'][1] for pDesc in paramDescriptions_full]], device='cuda', dtype = TLDTYPE)
         params_min = torch.round(params_min * params_rounding_factors) / params_rounding_factors
         params_max = torch.round(params_max * params_rounding_factors) / params_rounding_factors
 
         #[6]: Base Tensors
-        params_base = torch.rand(size = (nSeekerPoints, nParams), device = 'cuda', dtype = _TORCHDTYPE)
-        velocity    = torch.zeros_like(params_base, device = 'cuda', dtype = _TORCHDTYPE)
-        momentum    = torch.zeros_like(params_base, device = 'cuda', dtype = _TORCHDTYPE)
+        params_base = torch.rand(size = (nSeekerPoints, nParams), device = 'cuda', dtype = TLDTYPE)
+        velocity    = torch.zeros_like(params_base, device = 'cuda', dtype = TLDTYPE)
+        momentum    = torch.zeros_like(params_base, device = 'cuda', dtype = TLDTYPE)
 
         params_base = params_base * (params_max - params_min) + params_min                         #Range Mapping
         params_base = torch.round(params_base * params_rounding_factors) / params_rounding_factors #Rounding
@@ -598,13 +601,13 @@ class exitFunction():
                         (time.perf_counter_ns()-t_cpu_beg_ns)/1e6/len(params_test)-t_processing_sim_paramsSet_ms)
             else:
                 #Reset base parameters, velocity, and momentum
-                params_base = torch.rand(size = (nSeekerPoints, nParameters), device = 'cuda', dtype = _TORCHDTYPE)
+                params_base = torch.rand(size = (nSeekerPoints, nParameters), device = 'cuda', dtype = TLDTYPE)
                 params_base = params_base * (params_max - params_min) + params_min                         #Range Mapping
                 params_base = torch.round(params_base * params_rounding_factors) / params_rounding_factors #Rounding
                 params_base[:, params_fixed_mask] = params_fixed_values[params_fixed_mask]                 #Fixed Parameters Overwrite
                 seeker['_params_base'] = params_base
-                seeker['_velocity']    = torch.zeros_like(params_base, device = 'cuda', dtype = _TORCHDTYPE)
-                seeker['_momentum']    = torch.zeros_like(params_base, device = 'cuda', dtype = _TORCHDTYPE)
+                seeker['_velocity']    = torch.zeros_like(params_base, device = 'cuda', dtype = TLDTYPE)
+                seeker['_momentum']    = torch.zeros_like(params_base, device = 'cuda', dtype = TLDTYPE)
                 #Reset State variables
                 seeker['_currentStep']         = 1
                 seeker['_bestScore_delta_ema'] = None
@@ -661,7 +664,7 @@ class exitFunction():
                 #[11-3]: Complete Randomization
                 if 0 < n_completeRandom:
                     #[11-3-1]: Generate completely random params
-                    p_rand = torch.rand((n_completeRandom, nParameters), device='cuda', dtype=_TORCHDTYPE)
+                    p_rand = torch.rand((n_completeRandom, nParameters), device='cuda', dtype=TLDTYPE)
                     p_rand = p_rand * (params_max - params_min) + params_min
                     p_rand = torch.round(p_rand * params_rounding_factors) / params_rounding_factors
                     p_rand[:, params_fixed_mask] = params_fixed_values[params_fixed_mask]
@@ -688,22 +691,22 @@ class exitFunction():
 
         #[2]: Model Parameters Length Padding
         params_lToPad = (16-(params_model.size(dim=1)%16))%16
-        if 0 < params_lToPad: params_model = torch.cat([params_model, torch.zeros((size_paramsBatch, params_lToPad), device='cuda', dtype=_TORCHDTYPE)], dim=1)
+        if 0 < params_lToPad: params_model = torch.cat([params_model, torch.zeros((size_paramsBatch, params_lToPad), device='cuda', dtype=TLDTYPE)], dim=1)
         params_model = params_model.contiguous()
 
         #[3]: Result Buffers Initialization
-        balance_finals               = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
-        balance_bestFit_intercepts   = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
-        balance_bestFit_growthRates  = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
-        balance_bestFit_volatilities = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
+        balance_finals               = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
+        balance_bestFit_intercepts   = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
+        balance_bestFit_growthRates  = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
+        balance_bestFit_volatilities = torch.empty(size = (size_paramsBatch,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
         if self.isSeeker:
-            balance_wallet_history  = torch.empty(size = (1,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
-            balance_margin_history  = torch.empty(size = (1,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
+            balance_wallet_history  = torch.empty(size = (1,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
+            balance_margin_history  = torch.empty(size = (1,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
         else:
-            balance_wallet_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
-            balance_margin_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
+            balance_wallet_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
+            balance_margin_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
         balance_ftIndexes = torch.full(size = (size_paramsBatch,), fill_value = -1, device = 'cuda', dtype = torch.int32, requires_grad = False)
-        nTrades = torch.zeros(size = (size_paramsBatch,), device = 'cuda', dtype = _TORCHDTYPE, requires_grad = False)
+        nTrades = torch.zeros(size = (size_paramsBatch,), device = 'cuda', dtype = TLDTYPE, requires_grad = False)
 
         #[4]: Processing
         self.modelBatchProcessFunction(#Constants
@@ -745,7 +748,7 @@ class exitFunction():
         if self.isSeeker: 
             return balance_finals, balance_bestFit_growthRates, balance_bestFit_volatilities, nTrades
         else:
-            indexGrid         = torch.arange(size_dataLen, device='cuda', dtype=_TORCHDTYPE).unsqueeze(0)
+            indexGrid         = torch.arange(size_dataLen, device='cuda', dtype=TLDTYPE).unsqueeze(0)
             ftIndexes_bc      = balance_ftIndexes.unsqueeze(1)
             mask_validRegion  = (indexGrid >= ftIndexes_bc) & (ftIndexes_bc != -1)
             balance_bestFit_x = indexGrid - ftIndexes_bc
@@ -760,6 +763,6 @@ class exitFunction():
     def performOnParams(self, params: list) -> tuple[torch.Tensor, torch.Tensor]:
         return self.__processBatch(params = torch.tensor(data          = params, 
                                                          device        = 'cuda', 
-                                                         dtype         = _TORCHDTYPE,
+                                                         dtype         = TLDTYPE,
                                                          requires_grad = False))
 # =======================================================================================================================================================================================================================================================

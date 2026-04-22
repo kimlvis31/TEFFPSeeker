@@ -101,10 +101,10 @@ def processBatch(
     mp_dhThreshold = tl.load(mp_base_ptr + 5, mask = mask)
     
     #Model State Trackers
-    st_tefVal_prev                = tl.full([size_block,], 0.0, dtype=tl.float32)
-    st_tefVal_absMax              = tl.full([size_block,], 0.0, dtype=tl.float32)
-    st_mmacd_msDeltaAbsMARel_prev = 0.0
-    st_isDownhill                 = tl.full([size_block,], 0.0, dtype=tl.float32)
+    st_tefVal_prev                = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
+    st_tefVal_absMax_prev         = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
+    st_mmacd_msDeltaAbsMARel_prev = tl.full([],            0.0, dtype=sf.DTYPE)
+    st_isDownhill_prev            = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
 
     #Loop
     for loop_index in range(0, size_dataLen):
@@ -112,9 +112,9 @@ def processBatch(
         (tefDir_this,
          tefVal_this, 
          st_tefVal_prev,
-         st_tefVal_absMax,
+         st_tefVal_absMax_prev,
          st_mmacd_msDeltaAbsMARel_prev,
-         st_isDownhill
+         st_isDownhill_prev
         ) = getTEFValue(
             #Process
             size_block = size_block,
@@ -131,9 +131,9 @@ def processBatch(
             mp_dhThreshold = mp_dhThreshold,
             #Model State Trackers
             st_tefVal_prev                = st_tefVal_prev,
-            st_tefVal_absMax              = st_tefVal_absMax,
+            st_tefVal_absMax_prev         = st_tefVal_absMax_prev,
             st_mmacd_msDeltaAbsMARel_prev = st_mmacd_msDeltaAbsMARel_prev,
-            st_isDownhill                 = st_isDownhill
+            st_isDownhill_prev            = st_isDownhill_prev
             )
         # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
