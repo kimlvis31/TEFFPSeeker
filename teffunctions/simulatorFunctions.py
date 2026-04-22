@@ -27,9 +27,10 @@ TRITON_AUTOTUNE_CONFIGURATIONS = [triton.Config({'size_block': 32},  num_warps= 
                                  ]
 TRITON_AUTOTUNE_KEY = ['size_paramsBatch']
 
-PRICEINDEX_HIGHPRICE:  tl.constexpr = 0
-PRICEINDEX_LOWPRICE:   tl.constexpr = 1
-PRICEINDEX_CLOSEPRICE: tl.constexpr = 2
+PRICEINDEX_OPENPRICE:  tl.constexpr = 0
+PRICEINDEX_HIGHPRICE:  tl.constexpr = 1
+PRICEINDEX_LOWPRICE:   tl.constexpr = 2
+PRICEINDEX_CLOSEPRICE: tl.constexpr = 3
 
 def processBatch(tkf, **kwargs):
     if kwargs['SEEKERMODE']:
@@ -151,6 +152,7 @@ def processTrade_triton_kernel(
 
     #---[1-2]: Prices
     price_base_ptr_this = data_prices + (loop_index * data_prices_stride)
+    price_open  = tl.load(price_base_ptr_this + PRICEINDEX_OPENPRICE)
     price_high  = tl.load(price_base_ptr_this + PRICEINDEX_HIGHPRICE)
     price_low   = tl.load(price_base_ptr_this + PRICEINDEX_LOWPRICE)
     price_close = tl.load(price_base_ptr_this + PRICEINDEX_CLOSEPRICE)
@@ -173,8 +175,8 @@ def processTrade_triton_kernel(
     status_clear     = (position_side != tefDir_this)
 
     #---[1-5]: Exit Execution Price
-    dist_fslImmed        = tl.abs(entryPrice - price_act_FSLImmed)
-    dist_liq             = tl.abs(entryPrice - price_liquidation)
+    dist_fslImmed        = tl.abs(price_open - price_act_FSLImmed)
+    dist_liq             = tl.abs(price_open - price_liquidation)
     price_intra_first    = tl.where(dist_fslImmed < dist_liq, price_act_FSLImmed, price_liquidation)
     hit_any_intra        = hit_liquidation | hit_fslImmed
     price_exit_execution = price_close
