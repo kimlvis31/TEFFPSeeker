@@ -274,8 +274,8 @@ def getTEFValue(
     tefVal_this = tl.where(isNan, 0.0, tefVal_this)
 
     #[5]: State Trackers Update
-    st_tefVal_prev = tefVal_this
-    st_lst_prev    = analysis_lst
+    st_tefVal_prev = tl.where(isNan, st_tefVal_prev, tefVal_this)
+    st_lst_prev    = tl.where(isNan, st_lst_prev,    analysis_lst)
     
     #[6]: Return TEF Value & States
     return (tefDir_this,
