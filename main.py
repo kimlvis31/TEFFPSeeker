@@ -23,7 +23,7 @@ def test(config_test):
     dir_file_data       = os.path.join(dir_file_base, config_test['analysisData']+'_data.npy')
 
     #[3]: Data Load
-    with open(dir_file_descriptor, 'r') as _f: 
+    with open(dir_file_descriptor, 'r', encoding = 'utf-8') as _f: 
         descriptor = json.loads(_f.read())
     linearizedAnalysis = numpy.load(dir_file_data)
 
@@ -108,7 +108,7 @@ def seek(config_seek, process_begin_time):
         #[2-2-2]: Descriptor Read
         dir_file_descriptor = os.path.join(dir_file_base, st['analysisData']+'_descriptor.json')
         dir_file_data       = os.path.join(dir_file_base, st['analysisData']+'_data.npy')
-        with open(dir_file_descriptor, 'r') as f: 
+        with open(dir_file_descriptor, 'r', encoding = 'utf-8') as f: 
             descriptor = json.loads(f.read())
 
         #[2-2-3]: Processes
@@ -131,7 +131,7 @@ def seek(config_seek, process_begin_time):
         dir_file_data       = os.path.join(dir_file_base, st['analysisData']+'_data.npy')
 
         #[3-4]: Data Load
-        with open(dir_file_descriptor, 'r') as f: 
+        with open(dir_file_descriptor, 'r', encoding = 'utf-8') as f: 
             descriptor = json.loads(f.read())
         linearizedAnalysis = numpy.load(dir_file_data)
 
@@ -347,13 +347,34 @@ def seek(config_seek, process_begin_time):
                   'time':    datetime.datetime.fromtimestamp(process_begin_time).strftime("%Y/%m/%d %H:%M:%S"),
                   'results': pResults}
     resultData_path = os.path.join(thisResult_path, f"{rCode}_result.json")
-    with open(resultData_path, "w") as f: f.write(json.dumps(resultData))
+    with open(resultData_path, "w", encoding = 'utf-8') as f: 
+        json.dump(resultData, f, indent=4)
     print(" * Seeker Result Saved")
 
-    #[5]: System Message
+    #[5]: Trade Congiruation Export
+    for pIndex, process in processes.items():
+        bResult = process['bestResult']
+        if bResult is None:
+            continue
+        st = config_seek[pIndex]
+        tc = {"leverage":              st['leverage'],
+              "isolated":              True,
+              "direction":             "BOTH",
+              "fullStopLossImmediate": bResult['tradeParams'][0],
+              "fullStopLossClose":     bResult['tradeParams'][1],
+              "postStopLossReentry":   st['pslReentry'],
+              "teff_functionType":     st['exitFunctionType'],
+              "teff_functionParams":   list(bResult['modelParams'])
+             }
+        tc_path = os.path.join(thisResult_path, f"{rCode}_{pIndex}_tc.tc")
+        with open(tc_path, "w", encoding = 'utf-8') as f:
+            json.dump(tc, f, indent=4)
+    print(" * Best Result Trade Configurations Saved")
+
+    #[6]: System Message
     print(termcolor.colored("[Seeker Complete]\n", 'light_blue'))
 
-    #[6]: Result Return
+    #[7]: Result Return
     return rCode
 
 def read(rCord_read):
@@ -366,7 +387,7 @@ def read(rCord_read):
     dir_data_file_base = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'analysisData')
 
     #[3]: Result Data
-    with open(dir_result_file, 'r') as _f: 
+    with open(dir_result_file, 'r', encoding = 'utf-8') as _f: 
         resultData = json.loads(_f.read())
     print(f" * Result Code: {resultData['rCode']}")
     print(f" * Time:        {resultData['time']}")
@@ -385,7 +406,7 @@ def read(rCord_read):
         dir_file_data       = os.path.join(dir_data_file_base, st['analysisData']+'_data.npy')
 
         #[4-4]: Analysis Data Load
-        with open(dir_file_descriptor, 'r') as _f: 
+        with open(dir_file_descriptor, 'r', encoding = 'utf-8') as _f: 
             descriptor = json.loads(_f.read())
         linearizedAnalysis = numpy.load(dir_file_data)
 
