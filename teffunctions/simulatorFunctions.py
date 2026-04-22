@@ -178,7 +178,6 @@ def processTrade_triton_kernel(
     price_intra_first    = tl.where(dist_fslImmed < dist_liq, price_act_FSLImmed, price_liquidation)
     hit_any_intra        = hit_liquidation | hit_fslImmed
     price_exit_execution = price_close
-    price_exit_execution = tl.where(hit_fslClose, price_act_FSLClose, price_exit_execution)
     price_exit_execution = tl.where(hit_any_intra, price_intra_first, price_exit_execution)
     price_exit_execution = round_to_step(price_exit_execution, step_price)
     
