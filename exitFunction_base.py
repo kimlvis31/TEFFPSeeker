@@ -649,8 +649,11 @@ class exitFunction():
                     #[11-2-1]: Survived mean and STD
                     survived = seeker['_params_base'][survived_indices]
                     survived_mean = torch.mean(survived, dim=0)
-                    survived_std  = torch.std(survived, dim=0)*math.exp(-(currentStep//repop_interval-1)*repop_decayRate)
-                    survived_std  = torch.max(survived_std, 2.0/params_rounding_factors)
+                    if 1 < survived.size(0):
+                        survived_std = torch.std(survived, dim=0) * math.exp(-(currentStep//repop_interval-1)*repop_decayRate)
+                    else:
+                        survived_std = torch.zeros_like(survived_mean)
+                    survived_std = torch.max(survived_std, 2.0/params_rounding_factors)
                     
                     #[11-2-2]: Generate random params using normal distribution
                     p_guided = torch.normal(mean = survived_mean.repeat(n_guided, 1), 
