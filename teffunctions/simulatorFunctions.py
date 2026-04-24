@@ -6,22 +6,27 @@ if   DATATYPE_PRECISION == 32: DTYPE = tl.float32
 elif DATATYPE_PRECISION == 64: DTYPE = tl.float64
 else:                          DTYPE = tl.float32
 
-TRITON_AUTOTUNE_CONFIGURATIONS = [triton.Config({'size_block': 32},  num_warps= 1, num_stages=2),
-                                  triton.Config({'size_block': 32},  num_warps= 1, num_stages=3),
-                                  triton.Config({'size_block': 32},  num_warps= 1, num_stages=4),
+TRITON_AUTOTUNE_CONFIGURATIONS = [triton.Config({'size_block':  32}, num_warps= 1, num_stages=2),
+                                  triton.Config({'size_block':  32}, num_warps= 1, num_stages=3),
+                                  triton.Config({'size_block':  32}, num_warps= 2, num_stages=2),
+                                  triton.Config({'size_block':  32}, num_warps= 2, num_stages=3),
 
-                                  triton.Config({'size_block': 64},  num_warps= 2, num_stages=2),
-                                  triton.Config({'size_block': 64},  num_warps= 2, num_stages=3),
-                                  triton.Config({'size_block': 64},  num_warps= 2, num_stages=4),
+                                  triton.Config({'size_block':  64}, num_warps= 2, num_stages=2),
+                                  triton.Config({'size_block':  64}, num_warps= 2, num_stages=3),
+                                  triton.Config({'size_block':  64}, num_warps= 4, num_stages=2),
+                                  triton.Config({'size_block':  64}, num_warps= 4, num_stages=3),
 
                                   triton.Config({'size_block': 128}, num_warps= 4, num_stages=2),
                                   triton.Config({'size_block': 128}, num_warps= 4, num_stages=3),
                                   triton.Config({'size_block': 128}, num_warps= 4, num_stages=4),
-                                  triton.Config({'size_block': 128}, num_warps= 4, num_stages=5),
+                                  triton.Config({'size_block': 128}, num_warps= 8, num_stages=2),
+                                  triton.Config({'size_block': 128}, num_warps= 8, num_stages=3),
+                                  triton.Config({'size_block': 128}, num_warps= 8, num_stages=4),
 
                                   triton.Config({'size_block': 256}, num_warps= 8, num_stages=2),
                                   triton.Config({'size_block': 256}, num_warps= 8, num_stages=3),
-                                  triton.Config({'size_block': 256}, num_warps= 8, num_stages=4),
+                                  triton.Config({'size_block': 256}, num_warps=16, num_stages=2),
+                                  triton.Config({'size_block': 256}, num_warps=16, num_stages=3),
 
                                   triton.Config({'size_block': 512}, num_warps=16, num_stages=2)
                                  ]
