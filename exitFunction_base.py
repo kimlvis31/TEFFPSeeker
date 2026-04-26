@@ -349,7 +349,7 @@ class exitFunction():
                          '_bestResults':             [[] for _ in range (nRepetition)],
                          '_bestScore_delta_ema':     None}
         self.parameterBatchSize = self.__seeker['parameterBatchSize']
-        
+
         #[8]: Applied Seeker Parameters
         asp = {k: self.__seeker[k] 
                for k
@@ -379,7 +379,60 @@ class exitFunction():
                   )
               }
         return asp
-    
+
+    def warmupAutotune(self) -> None:
+        #[1]: Preprocess Check
+        if self.__data_prices is None or self.__data_analysis is None:
+            return (False, 'DATA NOT PREPROCESSED')
+
+        seeker = self.__seeker
+        nSeekerPoints      = seeker['nSeekerPoints']
+        nParameters        = len(seeker['tradeParamConfig']) + len(seeker['modelParamConfig'])
+        parameterBatchSize = seeker['parameterBatchSize']
+
+        #[2]: Determine All Batch Sizes To Warmup
+        nParamsSet_total = nSeekerPoints * nParameters * 2
+        n_fullBatches    = nParamsSet_total // parameterBatchSize
+        remainder        = nParamsSet_total %  parameterBatchSize
+
+        batchSizes_toWarmup = []
+        if 0 < n_fullBatches: batchSizes_toWarmup.append(parameterBatchSize)
+        if 0 < remainder:     batchSizes_toWarmup.append(remainder)
+
+        if not batchSizes_toWarmup:
+            return (False, 'NO BATCH SIZES TO WARMUP')
+
+        #[3]: Save Original Data & Prepare Short Slice
+        data_prices_full   = self.__data_prices
+        data_analysis_full = self.__data_analysis
+        dataLen_full       = data_prices_full.size(0)
+
+        WARMUP_DATALEN = min(10_080, dataLen_full) #1 Week Worth Of 1 Min Candles
+        self.__data_prices   = data_prices_full[:WARMUP_DATALEN].contiguous()
+        self.__data_analysis = data_analysis_full[:WARMUP_DATALEN].contiguous()
+
+        #[4]: Dummy Params Template (mid-range value)
+        paramDescs = TRADEPARAMS + self.model
+        params_mid = torch.tensor([[(pDesc['LIMIT'][0]+pDesc['LIMIT'][1])*0.5 for pDesc in paramDescs]], device='cuda', dtype=TLDTYPE)
+
+        #[5]: Trigger Autotune For Each Batch Size
+        try:
+            t_beg = time.perf_counter_ns()
+            for bSize in batchSizes_toWarmup:
+                params_warmup = params_mid.expand(bSize, nParameters).contiguous()
+                _ = self.__processBatch(params=params_warmup)
+                torch.cuda.synchronize()
+            t_elapsed_s = (time.perf_counter_ns()-t_beg)/1e9
+        except Exception as e:
+            return (False, str(e))
+
+        #[6]: Restore Original Data
+        self.__data_prices   = data_prices_full
+        self.__data_analysis = data_analysis_full
+
+        #[7]: Return Result
+        return (True, timeStringFormatter(int(t_elapsed_s)))
+
     def __getTestParams(self):
         #[1]: Tensors & Scalars
         seeker = self.__seeker

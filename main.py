@@ -254,7 +254,16 @@ def seek(config_seek, process_begin_time):
         st['scoringSamples']           = asp['scoringSamples']
         st['terminationThreshold']     = asp['terminationThreshold']
 
-        #[3-6]: Seeker
+        #[3-6]: AutoTune Warm Up
+        print(f"    - Warming Up eFunction Autotune (This Could Take A Few Minutes)...")
+        atwu_result = eFunction.warmupAutotune()
+        if atwu_result[0]: 
+            print(f"      - eFunction Autotune Warmup Complete! {atwu_result[1]}")
+        else:              
+            print(termcolor.colored(f"      - eFunction Autotune Warmup Failed - {atwu_result[1]}", 'light_red'))
+            continue
+
+        #[3-7]: Seeker
         print(f"    - Seeking eFunction Optimized Parameters...")
         console    = rConsole(highlight=False)
         complete   = False
@@ -324,7 +333,7 @@ def seek(config_seek, process_begin_time):
         except KeyboardInterrupt:
             print("    - Keyboard Interruption Detected, Terminating...")
 
-        #[3-7]: System Message
+        #[3-8]: System Message
         print(f"    - eFunction Optimized Parameters Seeking Process Complete!")
 
     #[4]: Results Save
