@@ -249,12 +249,12 @@ def processTrade_triton_kernel(
 
     #[2]: Balance Trend Trackers ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     first_trade_occurred = (0 <= balance_ftIndex)
-    bt_val_x_64 = tl.where(first_trade_occurred, 
-                           (loop_index-balance_ftIndex).to(tl.float64), 
-                           0.0)
-    bt_val_y_64 = tl.where(first_trade_occurred, 
-                           tl.log(tl.maximum(balance_wallet, 1e-9).to(tl.float64) / balance_initial),
-                           0.0)
+    bt_val_x = tl.where(first_trade_occurred, (loop_index-balance_ftIndex).to(DTYPE), 0.0)
+    bt_val_y = tl.where(first_trade_occurred, 
+                        tl.log(tl.maximum(balance_wallet, 1e-9) / balance_initial),
+                        0.0)
+    bt_val_x_64 = bt_val_x.to(tl.float64)
+    bt_val_y_64 = bt_val_y.to(tl.float64)
     bt_sum         += bt_val_y_64
     bt_sum_xy      += bt_val_x_64 * bt_val_y_64
     bt_sum_squared += bt_val_y_64 * bt_val_y_64
