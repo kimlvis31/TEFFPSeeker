@@ -79,9 +79,9 @@ def initializeSimulation_triton_kernel(
     nTrades           = tl.zeros(shape = [size_block,], dtype = DTYPE)
 
     #[5]: Balance Trend
-    bt_sum         = tl.zeros(shape = [size_block,], dtype = DTYPE)
-    bt_sum_squared = tl.zeros(shape = [size_block,], dtype = DTYPE)
-    bt_sum_xy      = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    bt_sum         = tl.zeros(shape = [size_block,], dtype = tl.float64)
+    bt_sum_squared = tl.zeros(shape = [size_block,], dtype = tl.float64)
+    bt_sum_xy      = tl.zeros(shape = [size_block,], dtype = tl.float64)
 
     #[6]: Return Initialized Contents
     return (offsets,
@@ -249,13 +249,15 @@ def processTrade_triton_kernel(
 
     #[2]: Balance Trend Trackers ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
     first_trade_occurred = (0 <= balance_ftIndex)
-    bt_val_x = tl.where(first_trade_occurred, (loop_index-balance_ftIndex).to(DTYPE), 0.0)
-    bt_val_y = tl.where(first_trade_occurred, 
-                        tl.log(tl.maximum(balance_wallet, 1e-9) / balance_initial),
-                        0.0)
-    bt_sum         += bt_val_y
-    bt_sum_xy      += bt_val_x*bt_val_y
-    bt_sum_squared += bt_val_y*bt_val_y
+    bt_val_x_64 = tl.where(first_trade_occurred, 
+                           (loop_index-balance_ftIndex).to(tl.float64), 
+                           0.0)
+    bt_val_y_64 = tl.where(first_trade_occurred, 
+                           tl.log(tl.maximum(balance_wallet, 1e-9).to(tl.float64) / balance_initial),
+                           0.0)
+    bt_sum         += bt_val_y_64
+    bt_sum_xy      += bt_val_x_64 * bt_val_y_64
+    bt_sum_squared += bt_val_y_64 * bt_val_y_64
     # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     #[3]: History Record ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -297,7 +299,7 @@ def evaluateBalanceTrend_triton_kernel(
     balance_ftIndexes,
     nTrades_rb
     ):
-    bt_n      = (size_dataLen-balance_ftIndex).to(DTYPE)
+    bt_n      = (size_dataLen-balance_ftIndex).to(tl.float64)
     bt_valid  = (0 <= balance_ftIndex) & (1.0 < bt_n)
     bt_n_safe = tl.where(bt_valid, bt_n, 1.0)
 
@@ -305,22 +307,22 @@ def evaluateBalanceTrend_triton_kernel(
     bt_mean_y = bt_sum   / bt_n_safe
     bt_mean_x = bt_sum_x / bt_n_safe
 
-    denominator_growth      = (bt_n * bt_n * (bt_n * bt_n - 1.0)) / 12.0
+    denominator_growth      = bt_n * bt_n * (bt_n - 1.0) * (bt_n + 1.0) / 12.0
     denominator_growth_safe = tl.where(bt_valid, denominator_growth, 1.0)
     numerator_growth        = (bt_n * bt_sum_xy) - (bt_sum_x * bt_sum)
     raw_growthRate          = numerator_growth / denominator_growth_safe
 
     raw_intercepts = bt_mean_y - (raw_growthRate * bt_mean_x)
 
-    bt_var_x = (bt_n * bt_n - 1.0) / 12.0
+    bt_var_x = (bt_n - 1.0) * (bt_n + 1.0) / 12.0
     bt_var_y = (bt_sum_squared / bt_n_safe) - (bt_mean_y * bt_mean_y)
     
     raw_variance_resid = tl.maximum(bt_var_y - (raw_growthRate * raw_growthRate * bt_var_x), 0.0)
     raw_volatility     = tl.sqrt(raw_variance_resid)
 
-    bt_growthRate = tl.where(bt_valid, raw_growthRate, 0.0)
-    bt_intercepts = tl.where(bt_valid, raw_intercepts, 0.0)
-    bt_volatility = tl.where(bt_valid, raw_volatility, 0.0)
+    bt_growthRate = tl.where(bt_valid, raw_growthRate, 0.0).to(DTYPE)
+    bt_intercepts = tl.where(bt_valid, raw_intercepts, 0.0).to(DTYPE)
+    bt_volatility = tl.where(bt_valid, raw_volatility, 0.0).to(DTYPE)
 
     #Final Results Store
     tl.store(pointer = balance_bestFit_intercepts   + offsets, value = bt_intercepts,   mask = mask)
