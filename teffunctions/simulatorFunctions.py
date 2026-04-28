@@ -1,5 +1,6 @@
 import triton
 import triton.language as tl
+from triton.language.extra import libdevice as tl_ld
 from config import DATATYPE_PRECISION
 
 if   DATATYPE_PRECISION == 32: DTYPE = tl.float32
@@ -104,13 +105,12 @@ def initializeSimulation_triton_kernel(
             )
 
 @triton.jit
-def round_to_step(x, step):
-    return tl.where(0 <= x, tl.floor(x/step + 0.5), -tl.floor(-x/step + 0.5)) * step
+def round_to_step(x, step, step_inv):
+    return tl_ld.rint(x * step_inv) * step
 
 @triton.jit
-def floor_to_step(x, step):
-    sign = tl.where(x < 0, -1.0, 1.0)
-    return tl.floor(tl.abs(x) / step) * step * sign
+def floor_to_step(x, step, step_inv):
+    return tl.floor(tl.abs(x) * step_inv) * tl.where(x < 0, -step, step)
 
 @triton.jit
 def get_maintenance_margin_rate_and_amount(
@@ -192,7 +192,12 @@ def processTrade_triton_kernel(
     bt_sum_xy,
     bt_sum_squared, 
     balance_wallet_history, 
-    balance_margin_history
+    balance_margin_history,
+    #Optimization
+    step_price_inv:    tl.constexpr,
+    step_quantity_inv: tl.constexpr,
+    step_quote_inv:    tl.constexpr,
+    leverage_inv:      tl.constexpr
     ):
     #[1]: Trade Simulation ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     #---[1-1]: TEF Range Control
@@ -213,8 +218,8 @@ def processTrade_triton_kernel(
 
     #---[1-4]: Exit Conditions
     #------[1-4-1]: FSL Immed & Close Trigger Prices
-    price_act_FSLImmed = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_immed), step_price)
-    price_act_FSLClose = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_close), step_price)
+    price_act_FSLImmed = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_immed), step_price, step_price_inv)
+    price_act_FSLClose = round_to_step(entryPrice * (1.0 - position_side*tp_fsl_close), step_price, step_price_inv)
 
     #------[1-4-2]: Liquidation Price
     notional_current = tl.abs(quantity) * price_close
@@ -223,7 +228,7 @@ def processTrade_triton_kernel(
                                                               lmTable_stride = lmTable_stride,
                                                               lmTable_nTiers = lmTable_nTiers
                                                              )
-    maintenanceMargin = round_to_step(notional_current * mmr - maintAmt, step_quote)
+    maintenanceMargin = round_to_step(notional_current * mmr - maintAmt, step_quote, step_quote_inv)
     maintenanceMargin = tl.maximum(maintenanceMargin, 0.0)
     price_liquidation = get_liquidation_price(walletBalance     = tl.where(isolated, balance_isolated, balance_cross),
                                               quantity          = quantity,
@@ -232,7 +237,7 @@ def processTrade_triton_kernel(
                                               maintenanceMargin = maintenanceMargin,
                                               maintMarginRate   = mmr
                                              )
-    price_liquidation = round_to_step(price_liquidation, step_price)
+    price_liquidation = round_to_step(price_liquidation, step_price, step_price_inv)
 
     #------[1-4-3]: Effective Exit Type Check
     price_worst = tl.where(0 < quantity, price_low,  price_close)
@@ -254,36 +259,36 @@ def processTrade_triton_kernel(
     
     #---[1-6]: Quantity Reduce
     balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
-    balance_committed = tl.abs(quantity) * entryPrice / leverage
+    balance_committed = tl.abs(quantity) * entryPrice * leverage_inv
     balance_toExit    = tl.maximum(balance_committed-balance_toCommit, 0.0)
     quantity_reduce   = tl.where(status_forceExit | status_clear | (tefVal_this == 0.0),
                                  tl.abs(quantity),
-                                 floor_to_step(balance_toExit / tl.maximum(entryPrice, 1e-12) * leverage, step_quantity))
+                                 floor_to_step(balance_toExit / tl.maximum(entryPrice, 1e-12) * leverage, step_quantity, step_quantity_inv))
     profit       = quantity_reduce * (price_exit_execution - entryPrice) * position_side
     profit       = tl.where(eTrigger_first == 1.0, profit - maintenanceMargin, profit)
-    profit       = round_to_step(profit, step_quote)
-    fee          = round_to_step(quantity_reduce * price_exit_execution * tradingFee, step_quote)
-    quantity_new = round_to_step(quantity-quantity_reduce*position_side, step_quantity)
+    profit       = round_to_step(profit, step_quote, step_quote_inv)
+    fee          = round_to_step(quantity_reduce * price_exit_execution * tradingFee, step_quote, step_quote_inv)
+    quantity_new = round_to_step(quantity-quantity_reduce*position_side, step_quantity, step_quantity_inv)
 
     #---[1-7]: Post-Exit Handling
     #------[1-7-1]: Profit & Fee
     net_profit = profit - fee
     if isolated: net_profit = tl.where(eTrigger_first == 1.0, tl.maximum(net_profit, -balance_isolated), net_profit)
     else:        net_profit = tl.where(eTrigger_first == 1.0, tl.maximum(net_profit, -balance_cross),    net_profit)
-    balance_cross = round_to_step(balance_cross + net_profit, step_quote)
+    balance_cross = round_to_step(balance_cross + net_profit, step_quote, step_quote_inv)
 
     #------[1-7-2]: Balance Transfer
     if isolated:
-        wb_transfer = tl.where(quantity_new == 0.0, balance_isolated, round_to_step(quantity_reduce * entryPrice / leverage, step_quote))
+        wb_transfer = tl.where(quantity_new == 0.0, balance_isolated, round_to_step(quantity_reduce * entryPrice * leverage_inv, step_quote, step_quote_inv))
         wb_transfer = tl.minimum(wb_transfer, balance_isolated)
-        balance_isolated = round_to_step(balance_isolated - wb_transfer, step_quote)
-        balance_cross    = round_to_step(balance_cross    + wb_transfer, step_quote)
+        balance_isolated = round_to_step(balance_isolated - wb_transfer, step_quote, step_quote_inv)
+        balance_cross    = round_to_step(balance_cross    + wb_transfer, step_quote, step_quote_inv)
 
     #------[1-7-3]: Wallet & Allocated Balance Update
     balance_wallet = round_to_step(balance_cross + balance_isolated, 
-                                   step_quote)
+                                   step_quote, step_quote_inv)
     balance_allocated = tl.where(quantity_new == 0.0, 
-                                 tl.minimum(round_to_step(balance_wallet * allocationRatio, step_quote), 
+                                 tl.minimum(round_to_step(balance_wallet * allocationRatio, step_quote, step_quote_inv), 
                                             balance_allocation_max), 
                                  balance_allocated)
     
@@ -294,38 +299,38 @@ def processTrade_triton_kernel(
 
     #---[1-9]: Quantity Increase
     balance_toCommit  = balance_allocated * tl.abs(tefVal_this)
-    balance_committed = tl.abs(quantity_new) * entryPrice / leverage
+    balance_committed = tl.abs(quantity_new) * entryPrice * leverage_inv
     balance_toEnter   = tl.maximum(balance_toCommit-balance_committed, 0.0)
     quantity_entry = tl.where(forceExited == 0.0,
-                              floor_to_step(balance_toEnter / price_close * leverage, step_quantity),
+                              floor_to_step(balance_toEnter / price_close * leverage, step_quantity, step_quantity_inv),
                               0.0)
-    fee            = round_to_step(tl.abs(quantity_entry) * price_close * tradingFee, step_quote)
-    quantity_final = round_to_step(quantity_new + quantity_entry*tefDir_this, step_quantity)
+    fee            = round_to_step(tl.abs(quantity_entry) * price_close * tradingFee, step_quote, step_quote_inv)
+    quantity_final = round_to_step(quantity_new + quantity_entry*tefDir_this, step_quantity, step_quantity_inv)
     
     #---[1-10]: Entry Price Update
     entryPrice_new = tl.where(quantity_final == 0.0, 
                               0.0, 
                               (tl.abs(quantity_new)*entryPrice + quantity_entry*price_close) / tl.maximum(tl.abs(quantity_final), 1e-12))
-    entryPrice_new = round_to_step(entryPrice_new, step_price)
+    entryPrice_new = round_to_step(entryPrice_new, step_price, step_price_inv)
     
     #---[1-11]: Post-Entry Handling
     #------[1-11-1]: Fee
-    balance_cross = round_to_step(balance_cross - fee, step_quote)
+    balance_cross = round_to_step(balance_cross - fee, step_quote, step_quote_inv)
 
     #------[1-11-2]: Balance Transfer
     if isolated:
-        wb_transfer = round_to_step(quantity_entry * price_close * (1.0/leverage + marketOpenLossRate), step_quote)
+        wb_transfer = round_to_step(quantity_entry * price_close * (leverage_inv + marketOpenLossRate), step_quote, step_quote_inv)
         wb_transfer = tl.minimum(wb_transfer, balance_cross)
-        balance_isolated = round_to_step(balance_isolated + wb_transfer, step_quote)
-        balance_cross    = round_to_step(balance_cross    - wb_transfer, step_quote)
+        balance_isolated = round_to_step(balance_isolated + wb_transfer, step_quote, step_quote_inv)
+        balance_cross    = round_to_step(balance_cross    - wb_transfer, step_quote, step_quote_inv)
 
     #------[1-11-3]: Wallet Balance
     balance_wallet = round_to_step(balance_cross + balance_isolated, 
-                                   step_quote)
+                                   step_quote, step_quote_inv)
 
     #---[1-12]: Margin Balance
     balance_margin = round_to_step(balance_wallet + quantity_final * (price_close - entryPrice_new), 
-                                   step_quote)
+                                   step_quote, step_quote_inv)
     balance_margin = tl.maximum(balance_margin, 0.0)
 
     #---[1-13]: Update State

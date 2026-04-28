@@ -69,8 +69,15 @@ def processBatch(
     size_dataLen:     tl.constexpr,
     size_block:       tl.constexpr,
     #Mode
-    SEEKERMODE: tl.constexpr
+    SEEKERMODE: tl.constexpr,
+    #Optimization
+    step_price_inv:    tl.constexpr,
+    step_quantity_inv: tl.constexpr,
+    step_quote_inv:    tl.constexpr,
+    leverage_inv:      tl.constexpr
     ):
+
+    #[1]: Initialization
     (offsets,
      mask,
      tp_fsl_immed,
@@ -97,7 +104,11 @@ def processBatch(
         size_block             = size_block
         )
 
-    #Model Parameters
+
+
+
+
+    #[2]: Model Parameters <*** EDIT BELOW FOR MODEL IMPLEMENTATION ***> ------------------------------------------------------------------------------------------------------------------------------
     mp_base_ptr = params_model + (offsets * params_model_stride)
     mp_alpha       = tl.load(mp_base_ptr + 0, mask = mask)
     mp_beta        = tl.load(mp_base_ptr + 1, mask = mask)
@@ -105,16 +116,18 @@ def processBatch(
     mp_strength_S  = tl.load(mp_base_ptr + 3, mask = mask)
     mp_strength_L  = tl.load(mp_base_ptr + 4, mask = mask)
     mp_dhThreshold = tl.load(mp_base_ptr + 5, mask = mask)
+    #Model Parameters <*** EDIT ABOVE FOR MODEL IMPLEMENTATION ***> -----------------------------------------------------------------------------------------------------------------------------------
     
-    #Model State Trackers
+    #[3]: Model State Trackers <*** EDIT BELOW FOR MODEL IMPLEMENTATION ***> --------------------------------------------------------------------------------------------------------------------------
     st_tefVal_prev                = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
     st_tefVal_absMax_prev         = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
     st_mmacd_msDeltaAbsMARel_prev = tl.full([],            0.0, dtype=sf.DTYPE)
     st_isDownhill_prev            = tl.full([size_block,], 0.0, dtype=sf.DTYPE)
+    #Model State Trackers END <*** EDIT ABOVE FOR MODEL IMPLEMENTATION ***> ---------------------------------------------------------------------------------------------------------------------------
 
-    #Loop
+    #[4]: Loop
     for loop_index in range(0, size_dataLen):
-        #[1]: TEF Values  <!!! EDIT HERE FOR MODEL ADDITION !!!> --------------------------------------------------------------------------------------------------------------------------------------
+        #[4-1]: TEF Value <!!! EDIT BELOW FOR MODEL IMPLEMENTATION !!!> -------------------------------------------------------------------------------------------------------------------------------
         (tefDir_this,
          tefVal_this, 
          st_tefVal_prev,
@@ -141,9 +154,13 @@ def processBatch(
             st_mmacd_msDeltaAbsMARel_prev = st_mmacd_msDeltaAbsMARel_prev,
             st_isDownhill_prev            = st_isDownhill_prev
             )
-        # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        #TEF Value END <!!! EDIT BELOW FOR MODEL IMPLEMENTATION !!!> ----------------------------------------------------------------------------------------------------------------------------------
 
-        #[2]: Trade Simulation
+
+
+
+
+        #[4-2]: Trade Simulation
         (balance_cross,
          balance_isolated,
          balance_wallet,
@@ -199,9 +216,15 @@ def processBatch(
             bt_sum_xy              = bt_sum_xy,
             bt_sum_squared         = bt_sum_squared, 
             balance_wallet_history = balance_wallet_history, 
-            balance_margin_history = balance_margin_history
+            balance_margin_history = balance_margin_history,
+            #Optimization
+            step_price_inv         = step_price_inv,
+            step_quantity_inv      = step_quantity_inv,
+            step_quote_inv         = step_quote_inv,
+            leverage_inv           = leverage_inv
             )
-    #Balance Trend Evaluation
+        
+    #[5]: Balance Trend Evaluation
     sf.evaluateBalanceTrend_triton_kernel(
         size_dataLen                 = size_dataLen,
         offsets                      = offsets,

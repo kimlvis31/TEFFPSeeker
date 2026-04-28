@@ -809,7 +809,12 @@ class exitFunction():
                                        size_paramsBatch = size_paramsBatch,
                                        size_dataLen     = size_dataLen,
                                        #Mode
-                                       SEEKERMODE = self.isSeeker
+                                       SEEKERMODE = self.isSeeker,
+                                       #Optimization
+                                       step_price_inv    = 10 ** self.precision_price,
+                                       step_quantity_inv = 10 ** self.precision_quantity,
+                                       step_quote_inv    = 10 ** self.precision_quote,
+                                       leverage_inv      = 1/self.leverage
                                        )
 
         #[5]: Return Result
