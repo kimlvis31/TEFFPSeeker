@@ -6,6 +6,7 @@ import math
 import time
 import pandas
 from functools import wraps
+import pprint
 
 import teffunctions.simulatorFunctions as sf
 from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
@@ -62,7 +63,7 @@ def BPST_Timer(func):
 
 #Exit Function Model ====================================================================================================================================================================================================================================
 class exitFunction():
-    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, pslReentry, precision_price, precision_quantity, precision_quote):
+    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, isolated, pslReentry, precision_price, precision_quantity, precision_quote, lmTable):
         #[1]: System
         self.MODELNAME                 = modelName
         self.model                     = TEFFUNCTIONS_MODEL[self.MODELNAME]
@@ -72,11 +73,13 @@ class exitFunction():
         self.balance_initial           = round(balance_initial, precision_quote)
         self.balance_allocation_max    = float('inf') if balance_allocation_max is None else round(balance_allocation_max, precision_quote)
         self.leverage                  = leverage
+        self.isolated                  = isolated
         self.pslReentry                = pslReentry
         self.precision_price           = precision_price
         self.precision_quantity        = precision_quantity
         self.precision_quote           = precision_quote
         self.parameterBatchSize        = 32
+        self.lmTable                   = torch.tensor(data = (lmTable if lmTable else []), device = 'cuda', dtype = PTDTYPE)[:,1:].contiguous()
 
         #[2]: Data Set
         self.__data_prices   = None
@@ -776,8 +779,12 @@ class exitFunction():
                                        step_quantity          = 10 ** -self.precision_quantity,
                                        step_quote             = 10 ** -self.precision_quote,
                                        leverage               = self.leverage,
+                                       isolated               = self.isolated,
                                        allocationRatio        = ALLOCATIONRATIO,
                                        tradingFee             = TRADINGFEE,
+                                       lmTable                = self.lmTable,
+                                       lmTable_stride         = self.lmTable.stride(0),
+                                       lmTable_nTiers         = self.lmTable.shape[0],
                                        #Base Data
                                        data_prices             = self.__data_prices,
                                        data_prices_stride      = self.__data_prices.stride(dim=0),

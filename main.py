@@ -1,3 +1,4 @@
+#Python Modules
 import time
 import numpy
 import datetime
@@ -11,8 +12,22 @@ import config
 from rich.console import Console as rConsole
 from rich.live    import Live    as rLive
 
+#TEFFP Seeker Modules
 from exitFunction_base import exitFunction
 
+#Leverage Margin Table
+try:
+    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'binance_futures_leverage_margin_table.json'), 'r') as f:
+        LEVERAGEMARGINTABLE = json.load(f)
+except Exception as e:
+    print(termcolor.colored("[WARNING - LEVERAGE MARGIN TABLE NOT FOUND]", 'light_red'))
+    LEVERAGEMARGINTABLE = dict()
+
+
+
+
+
+#TEST FUNCTION ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def test(config_test):
     #[1]: System Message
     print(termcolor.colored("[PARAMETER TEST]", 'light_blue'))
@@ -33,10 +48,12 @@ def test(config_test):
                              balance_initial        = config_test['balance_initial'],
                              balance_allocation_max = config_test['balance_allocation_max'],
                              leverage               = config_test['leverage'], 
+                             isolated               = config_test['isolated'],
                              pslReentry             = config_test['pslReentry'],
                              precision_price        = descriptor['pricePrecision'],
                              precision_quantity     = descriptor['quantityPrecision'],
-                             precision_quote        = descriptor['quotePrecision'])
+                             precision_quote        = descriptor['quotePrecision'],
+                             lmTable                = LEVERAGEMARGINTABLE.get(descriptor['positionSymbol'], None))
     ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])
     if ppResult is None:
         print(termcolor.colored("[PARAMETER TEST FAILED]", 'light_red'))
@@ -86,7 +103,13 @@ def test(config_test):
 
     #[9]: System Message
     print(termcolor.colored("[PARAMETER TEST COMPLETE]", 'light_blue'))
+#TEST FUNCTION END ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+
+
+
+#SEEK FUNCTION ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def seek(config_seek, process_begin_time):
     #[1]: System Message
     print(termcolor.colored("[Seeker]", 'light_blue'))
@@ -141,10 +164,12 @@ def seek(config_seek, process_begin_time):
                                  balance_initial        = st['balance_initial'],
                                  balance_allocation_max = st['balance_allocation_max'],
                                  leverage               = st['leverage'],
+                                 isolated               = st['isolated'],
                                  pslReentry             = st['pslReentry'],
                                  precision_price        = descriptor['pricePrecision'],
                                  precision_quantity     = descriptor['quantityPrecision'],
-                                 precision_quote        = descriptor['quotePrecision'])
+                                 precision_quote        = descriptor['quotePrecision'],
+                                 lmTable                = LEVERAGEMARGINTABLE.get(descriptor['positionSymbol'], None))
         print(f"    - Preprocessing Analysis Data...")
         t_0 = time.perf_counter_ns()
         ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])
@@ -186,6 +211,7 @@ def seek(config_seek, process_begin_time):
         print(f"      - Initial Balance:               {st['balance_initial']}")
         print(f"      - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"      - Leverage:                      {st['leverage']}")
+        print(f"      - Isolated:                      {st['isolated']}")
         print(f"      - PSL Re-entry:                  {st['pslReentry']}")
         try:    st['tradeParamConfig'] = tuple(st['tradeParamConfig'])
         except: pass
@@ -367,7 +393,7 @@ def seek(config_seek, process_begin_time):
             continue
         st = config_seek[pIndex]
         tc = {"leverage":              st['leverage'],
-              "isolated":              True,
+              "isolated":              st['isolated'],
               "direction":             "BOTH",
               "fullStopLossImmediate": bResult['tradeParams'][0],
               "fullStopLossClose":     bResult['tradeParams'][1],
@@ -385,7 +411,13 @@ def seek(config_seek, process_begin_time):
 
     #[7]: Result Return
     return rCode
+#SEEK FUNCTION END ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+
+
+
+#READ FUNCTION ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 def read(rCord_read):
     #[1]: System Message
     print(termcolor.colored("[Seeker Result Read]", 'light_blue'))
@@ -432,6 +464,7 @@ def read(rCord_read):
         print(f"    - Initial Balance:               {st['balance_initial']}")
         print(f"    - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"    - Leverage:                      {st['leverage']}")
+        print(f"    - Isolated:                      {st['isolated']}")
         print(f"    - PSL Re-Entry:                  {st['pslReentry']}")
         print(f"    - Trade Parameter Configuration: {tuple(st['tradeParamConfig'])}")
         print(f"    - Model Parameter Configuration: {tuple(st['modelParamConfig'])}")
@@ -485,10 +518,12 @@ def read(rCord_read):
                                  balance_initial        = st['balance_initial'],
                                  balance_allocation_max = st['balance_allocation_max'],
                                  leverage               = st['leverage'],
+                                 isolated               = st['isolated'],
                                  pslReentry             = st['pslReentry'],
                                  precision_price        = descriptor['pricePrecision'],
                                  precision_quantity     = descriptor['quantityPrecision'],
-                                 precision_quote        = descriptor['quotePrecision'])
+                                 precision_quote        = descriptor['quotePrecision'],
+                                 lmTable                = LEVERAGEMARGINTABLE.get(descriptor['positionSymbol'], None))
         print(f"    - Preprocessing Analysis Data...")
         t_0 = time.perf_counter_ns()
         ppResult = eFunction.preprocessData(linearizedAnalysis = linearizedAnalysis, indexIdentifier = descriptor['indexIdentifier'])
@@ -536,7 +571,18 @@ def read(rCord_read):
 
     #[5]: System Message
     print(termcolor.colored("[Seeker Result Read Complete]", 'light_blue'))
+#READ FUNCTION END ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+
+
+
+
+
+
+
+
+
+#MAIN FUNCTION ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     #[1]: System Message
     print(termcolor.colored("<TARGET EXPOSURE FACTOR FUNCTION PARAMETERS SEEKER PROCESS>\n", 'light_green'))
@@ -572,3 +618,4 @@ if __name__ == "__main__":
 
     #[7]: System Message
     print(termcolor.colored("\n<TARGET EXPOSURE FACTOR FUNCTION PARAMETERS SEEKER PROCESS COMPLETE>", 'light_green'))
+#MAIN FUNCTION END ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
