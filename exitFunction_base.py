@@ -6,7 +6,6 @@ import math
 import time
 import pandas
 from functools import wraps
-import pprint
 
 import teffunctions.simulatorFunctions as sf
 from exitFunction_models import TEFFUNCTIONS_MODEL, TEFFUNCTIONS_INPUTDATAKEY, TEFFUNCTIONS_BATCHPROCESSFUNCTION
@@ -16,8 +15,9 @@ if   DATATYPE_PRECISION == 32: PTDTYPE = torch.float32
 elif DATATYPE_PRECISION == 64: PTDTYPE = torch.float64
 else:                          PTDTYPE = torch.float32
 
-ALLOCATIONRATIO = 0.95
-TRADINGFEE      = 0.0005
+ALLOCATIONRATIO    = 0.95
+TRADINGFEE         = 0.0005
+MARKETOPENLOSSRATE = 0.0015
 
 BPST_KVALUE        = 2/(100+1)
 BPST_PRINTINTERVAL = 100e6
@@ -782,6 +782,7 @@ class exitFunction():
                                        isolated               = self.isolated,
                                        allocationRatio        = ALLOCATIONRATIO,
                                        tradingFee             = TRADINGFEE,
+                                       marketOpenLossRate     = MARKETOPENLOSSRATE,
                                        lmTable                = self.lmTable,
                                        lmTable_stride         = self.lmTable.stride(0),
                                        lmTable_nTiers         = self.lmTable.shape[0],

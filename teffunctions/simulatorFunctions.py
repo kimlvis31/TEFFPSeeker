@@ -165,6 +165,7 @@ def processTrade_triton_kernel(
     isolated:               tl.constexpr,
     allocationRatio:        tl.constexpr,
     tradingFee:             tl.constexpr,
+    marketOpenLossRate:     tl.constexpr,
     lmTable,
     lmTable_stride:         tl.constexpr,
     lmTable_nTiers:         tl.constexpr,
@@ -313,7 +314,7 @@ def processTrade_triton_kernel(
 
     #------[1-11-2]: Balance Transfer
     if isolated:
-        wb_transfer = round_to_step(quantity_entry * price_close * (1.0/leverage + 0.01), step_quote)
+        wb_transfer = round_to_step(quantity_entry * price_close * (1.0/leverage + marketOpenLossRate), step_quote)
         wb_transfer = tl.minimum(wb_transfer, balance_cross)
         balance_isolated = round_to_step(balance_isolated + wb_transfer, step_quote)
         balance_cross    = round_to_step(balance_cross    - wb_transfer, step_quote)
