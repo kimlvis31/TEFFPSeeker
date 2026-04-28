@@ -72,7 +72,6 @@ def initializeSimulation_triton_kernel(
     balance_cross     = tl.zeros(shape = [size_block], dtype = DTYPE) + balance_initial
     balance_isolated  = tl.zeros(shape = [size_block], dtype = DTYPE)
     balance_wallet    = balance_cross  + balance_isolated
-    balance_margin    = balance_wallet + 0.0
     balance_allocated = tl.minimum(balance_wallet * allocationRatio, balance_allocation_max)
     balance_ftIndex   = tl.full(shape = [size_block], value = -1, dtype = tl.int32)
     quantity          = tl.zeros(shape = [size_block,], dtype = DTYPE)
@@ -93,7 +92,6 @@ def initializeSimulation_triton_kernel(
             balance_cross,
             balance_isolated,
             balance_wallet,
-            balance_margin,
             balance_allocated,
             balance_ftIndex,
             quantity,
@@ -183,7 +181,6 @@ def processTrade_triton_kernel(
     balance_cross,
     balance_isolated,
     balance_wallet,
-    balance_margin,
     balance_allocated,
     quantity, 
     entryPrice, 
@@ -355,14 +352,13 @@ def processTrade_triton_kernel(
     #[3]: History Record ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     if not SEEKERMODE:
         off_write = offsets * size_dataLen + loop_index
-        tl.store(pointer = balance_wallet_history  + off_write, value = balance_wallet, mask = mask)
-        tl.store(pointer = balance_margin_history  + off_write, value = balance_margin, mask = mask)
+        tl.store(pointer = balance_wallet_history + off_write, value = balance_wallet, mask = mask)
+        tl.store(pointer = balance_margin_history + off_write, value = balance_margin, mask = mask)
     # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     return (balance_cross,
             balance_isolated,
-            balance_wallet, 
-            balance_margin,
+            balance_wallet,
             balance_allocated, 
             balance_ftIndex,
             quantity, 
