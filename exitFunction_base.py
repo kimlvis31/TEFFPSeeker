@@ -450,9 +450,11 @@ class exitFunction():
         nSeekers, nParams = params_base.shape
 
         #[1]: Delta Compuation
-        delta = params_base * deltaRatio                                               #Raw Value
-        delta = torch.round(delta * params_rounding_factors) / params_rounding_factors #Rounded Value
-        delta = torch.diag_embed(delta)                                                #Delta Diagonalized
+        delta     = params_base * deltaRatio                                               #Raw Value
+        delta     = torch.round(delta * params_rounding_factors) / params_rounding_factors #Rounded Value
+        min_steps = 1.0/params_rounding_factors                                            #Min Steps
+        delta     = torch.max(delta, min_steps)                                            #Min Delta Ensured Delta
+        delta     = torch.diag_embed(delta)                                                #Delta Diagonalized
 
         #[2]: Parameters Base Dimension Expansion
         params_base_expanded = params_base.unsqueeze(1).expand(-1, nParams, -1)
@@ -618,7 +620,12 @@ class exitFunction():
         
         params_base_step_size = learningRate * momentum_hat / (torch.sqrt(velocity_hat) + eps)
         
-        params_base = params_base + params_base_step_size
+        params_base_raw = params_base + params_base_step_size
+        params_base_rounded = torch.round(params_base_raw * params_rounding_factors) / params_rounding_factors
+        min_steps = 1.0 / params_rounding_factors
+        direction = torch.sign(params_base_step_size)
+        zero_update_mask = (torch.abs(params_base_step_size) > eps) & (params_base_rounded == params_base)
+        params_base = torch.where(zero_update_mask, params_base + (direction * min_steps), params_base_rounded)
         params_base = torch.round(params_base * params_rounding_factors) / params_rounding_factors
         params_base = torch.max(torch.min(params_base, params_max), params_min)
         params_base[:, params_fixed_mask] = params_fixed_values[params_fixed_mask]
