@@ -17,8 +17,10 @@ from exitFunction_base import exitFunction
 
 #Leverage Margin Table
 try:
-    with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'binance_futures_leverage_margin_table.json'), 'r') as f:
-        LEVERAGEMARGINTABLE = json.load(f)
+    with open(file     = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'binance_futures_leverage_margin_table.json'), 
+              mode     = 'r',
+              encoding = 'utf-8') as f:
+        LEVERAGEMARGINTABLE = json.load(f)['table']
 except Exception as e:
     print(termcolor.colored("[WARNING - LEVERAGE MARGIN TABLE NOT FOUND]", 'light_red'))
     LEVERAGEMARGINTABLE = dict()
