@@ -558,8 +558,9 @@ def read(rCord_read):
 
         #[4-10]: Matplot Drawing
         #---[4-10-1]: Prepare Subplots
-        fig, (ax1, ax2, ax3, ax4) = matplotlib.pyplot.subplots(4, 1, figsize=(16, 12), sharex=True)
-        fig.subplots_adjust(hspace=0.2)
+        fig, axes = matplotlib.pyplot.subplots(2, 2, figsize=(16, 12), sharex='all')
+        ax1, ax2, ax3, ax4 = axes.flatten()
+        fig.subplots_adjust(hspace=0.2, wspace=0.15)
 
         #---[4-10-2]: Prepare Data
         idx_close = descriptor['indexIdentifier']['KLINE_CLOSEPRICE']
