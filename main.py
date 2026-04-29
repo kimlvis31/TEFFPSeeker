@@ -557,18 +557,72 @@ def read(rCord_read):
         print(f"    - Seeker Records Reconstruction Complete! <{(t_1-t_0)/1e6:.3f} ms>")
 
         #[4-10]: Matplot Drawing
-        matplotlib.pyplot.plot(balance_wallet_history[0,:].cpu(),  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1, zorder = 4)
-        matplotlib.pyplot.plot(balance_margin_history[0,:].cpu(),  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1, zorder = 3)
-        matplotlib.pyplot.plot(balance_bestFit_history[0,:].cpu(), color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=2, zorder = 5)
-        for _rIndex in range (1, nParams):
-            matplotlib.pyplot.plot(balance_wallet_history[_rIndex,:].cpu(), color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.10+0.10,3)), linestyle='solid',  linewidth=0.5, zorder = 2)
-            matplotlib.pyplot.plot(balance_margin_history[_rIndex,:].cpu(), color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.05+0.05,3)), linestyle='dashed', linewidth=0.5, zorder = 1)
+        #---[4-10-1]: Prepare Subplots
+        fig, (ax1, ax2, ax3, ax4) = matplotlib.pyplot.subplots(4, 1, figsize=(16, 12), sharex=True)
+        fig.subplots_adjust(hspace=0.2)
 
-        #[4-11]: Matplot Show
-        matplotlib.pyplot.title(f"[RESULT READ] Wallet & Margin Balance History")
+        #---[4-10-2]: Prepare Data
+        idx_close = descriptor['indexIdentifier']['KLINE_CLOSEPRICE']
+        hist_len = balance_wallet_history.shape[1]
+        close_p  = linearizedAnalysis[-hist_len:, idx_close]
+        bwh  = balance_wallet_history.cpu()
+        mwh  = balance_margin_history.cpu()
+        bbfh = balance_bestFit_history.cpu()
+
+        #---[4-10-3]: Price Subplot
+        ax1.plot(close_p, color='#1f77b4', linewidth=1.2, label='Close Price')
+        ax1.set_title("Price (Close Price)")
+        ax1.set_ylabel("Price")
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(loc='upper left', fontsize=8)
+
+        #---[4-10-4]: Balance History (Linear Scale)
+        ax2.plot(bwh[0,:],  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1, zorder=4, label='Wallet (Best)')
+        ax2.plot(mwh[0,:],  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1, zorder=3, label='Margin (Best)')
+        ax2.plot(bbfh[0,:], color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=2, zorder=5, label='Best Fit')
+        for _rIndex in range(1, nParams):
+            ax2.plot(bwh[_rIndex,:], color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.10+0.10,3)), linestyle='solid',  linewidth=0.5, zorder=2)
+            ax2.plot(mwh[_rIndex,:], color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.05+0.05,3)), linestyle='dashed', linewidth=0.5, zorder=1)
+        ax2.set_title("Balance History (Linear Scaled)")
+        ax2.set_ylabel("Balance")
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc='upper left', fontsize=8)
+
+        #---[4-10-5]: Balance History (Log Scaled)
+        ax3.plot(bwh[0,:],  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1, zorder=4, label='Wallet (Best)')
+        ax3.plot(mwh[0,:],  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1, zorder=3, label='Margin (Best)')
+        ax3.plot(bbfh[0,:], color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=2, zorder=5, label='Best Fit')
+        for _rIndex in range(1, nParams):
+            ax3.plot(bwh[_rIndex,:], color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.10+0.10,3)), linestyle='solid',  linewidth=0.5, zorder=2)
+            ax3.plot(mwh[_rIndex,:], color=(0.5, 0.8, 0.0, round((_rIndex+1)/nParams*0.05+0.05,3)), linestyle='dashed', linewidth=0.5, zorder=1)
+        ax3.set_yscale('log')
+        ax3.set_title("Balance History (Log Scaled)")
+        ax3.set_ylabel("Log Balance")
+        ax3.set_xlabel("Time Step")
+        ax3.grid(True, alpha=0.3, which='both', linestyle='--')
+        ax3.legend(loc='upper left', fontsize=8)
+
+        #---[4-10-6]: Balance Deviation from Best Fit (%)
+        wallet_0  = bwh[0,:]
+        margin_0  = mwh[0,:]
+        bestFit_0 = bbfh[0,:]
+        dev_wallet = (wallet_0 - bestFit_0) / bestFit_0 * 100
+        dev_margin = (margin_0 - bestFit_0) / bestFit_0 * 100
+        ax4.plot(dev_wallet, color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1.5, zorder=4, label='Wallet Deviation (%)')
+        ax4.plot(dev_margin, color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1.5, zorder=3, label='Margin Deviation (%)')
+        ax4.axhline(0, color=(0.8, 0.5, 0.8, 1.0), linestyle='solid', linewidth=2, zorder=5, label='Best Fit (0%)')
+        ax4.set_title("Balance Deviation from Best Fit (%)")
+        ax4.set_ylabel("Deviation (%)")
+        ax4.set_xlabel("Time Step")
+        ax4.grid(True, alpha=0.3, linestyle='--')
+        ax4.legend(loc='upper left', fontsize=8)
+
+        #---[4-10-7]: Matplot Show
+        fig.suptitle(f"[RESULT READ] Analysis Results", fontsize=18, fontweight='bold')
+        matplotlib.pyplot.tight_layout(rect=[0, 0.03, 1, 0.96])
         matplotlib.pyplot.show()
 
-        #[4-12]: Line Skip
+        #[4-11]: Line Skip
         print()
 
     #[5]: System Message
