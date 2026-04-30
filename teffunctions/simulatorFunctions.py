@@ -78,6 +78,7 @@ def initializeSimulation_triton_kernel(
     quantity          = tl.zeros(shape = [size_block,], dtype = DTYPE)
     entryPrice        = tl.zeros(shape = [size_block,], dtype = DTYPE)
     forceExited       = tl.zeros(shape = [size_block,], dtype = DTYPE)
+    tradeVolumes      = tl.zeros(shape = [size_block,], dtype = DTYPE)
     nTrades           = tl.zeros(shape = [size_block,], dtype = DTYPE)
 
     #[5]: Balance Trend
@@ -98,6 +99,7 @@ def initializeSimulation_triton_kernel(
             quantity,
             entryPrice,
             forceExited,
+            tradeVolumes,
             nTrades,
             bt_sum,
             bt_sum_xy,
@@ -186,7 +188,8 @@ def processTrade_triton_kernel(
     quantity, 
     entryPrice, 
     forceExited, 
-    nTrades, 
+    tradeVolumes,
+    nTrades,
     balance_ftIndex,
     bt_sum, 
     bt_sum_xy,
@@ -335,11 +338,12 @@ def processTrade_triton_kernel(
 
     #---[1-13]: Update State
     balance_ftIndex = tl.where((balance_ftIndex == -1) & (quantity_final != quantity), loop_index, balance_ftIndex)
-    trade_exit  = tl.where(0.0 < quantity_reduce, 1, 0)
-    trade_entry = tl.where(0.0 < quantity_entry,  1, 0)
-    nTrades     = nTrades + trade_exit + trade_entry
-    quantity   = quantity_final
-    entryPrice = entryPrice_new
+    trade_exit   = tl.where(0.0 < quantity_reduce, 1.0, 0.0)
+    trade_entry  = tl.where(0.0 < quantity_entry,  1.0, 0.0)
+    tradeVolumes = tradeVolumes + quantity_reduce + quantity_entry
+    nTrades      = nTrades      + trade_exit      + trade_entry
+    quantity     = quantity_final
+    entryPrice   = entryPrice_new
     # -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     #[2]: Balance Trend Trackers ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -370,6 +374,7 @@ def processTrade_triton_kernel(
             quantity, 
             entryPrice, 
             forceExited, 
+            tradeVolumes,
             nTrades,
             bt_sum, 
             bt_sum_xy,
@@ -382,6 +387,7 @@ def evaluateBalanceTrend_triton_kernel(
     offsets,
     mask,
     balance_wallet,
+    tradeVolumes,
     nTrades,
     balance_ftIndex,
     bt_sum,
@@ -392,7 +398,8 @@ def evaluateBalanceTrend_triton_kernel(
     balance_bestFit_growthRates,
     balance_bestFit_volatilities,
     balance_ftIndexes,
-    nTrades_rb
+    nTrades_rb,
+    tradeVolumes_rb
     ):
     bt_n      = (size_dataLen-balance_ftIndex).to(tl.float64)
     bt_valid  = (0 <= balance_ftIndex) & (1.0 < bt_n)
@@ -426,4 +433,5 @@ def evaluateBalanceTrend_triton_kernel(
     tl.store(pointer = balance_finals               + offsets, value = balance_wallet,  mask = mask)
     tl.store(pointer = balance_ftIndexes            + offsets, value = balance_ftIndex, mask = mask)
     tl.store(pointer = nTrades_rb                   + offsets, value = nTrades,         mask = mask)
+    tl.store(pointer = tradeVolumes_rb              + offsets, value = tradeVolumes,    mask = mask)
 

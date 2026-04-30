@@ -65,6 +65,7 @@ def processBatch(
     balance_wallet_history,
     balance_margin_history,
     balance_ftIndexes,
+    tradeVolumes_rb,
     nTrades_rb,
     #Sizes
     size_paramsBatch: tl.constexpr,
@@ -92,6 +93,7 @@ def processBatch(
      quantity,
      entryPrice,
      forceExited,
+     tradeVolumes,
      nTrades,
      bt_sum,
      bt_sum_xy,
@@ -167,6 +169,7 @@ def processBatch(
          quantity, 
          entryPrice, 
          forceExited, 
+         tradeVolumes,
          nTrades,
          bt_sum, 
          bt_sum_xy,
@@ -208,6 +211,7 @@ def processBatch(
             quantity               = quantity, 
             entryPrice             = entryPrice, 
             forceExited            = forceExited, 
+            tradeVolumes           = tradeVolumes,
             nTrades                = nTrades, 
             balance_ftIndex        = balance_ftIndex,
             bt_sum                 = bt_sum, 
@@ -228,6 +232,7 @@ def processBatch(
         offsets                      = offsets,
         mask                         = mask,
         balance_wallet               = balance_wallet,
+        tradeVolumes                 = tradeVolumes,
         nTrades                      = nTrades,
         balance_ftIndex              = balance_ftIndex,
         bt_sum                       = bt_sum,
@@ -238,6 +243,7 @@ def processBatch(
         balance_bestFit_growthRates  = balance_bestFit_growthRates,
         balance_bestFit_volatilities = balance_bestFit_volatilities,
         balance_ftIndexes            = balance_ftIndexes,
+        tradeVolumes_rb              = tradeVolumes_rb,
         nTrades_rb                   = nTrades_rb
         )
 # =======================================================================================================================================================================================================================================================

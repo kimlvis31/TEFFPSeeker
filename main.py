@@ -72,6 +72,7 @@ def test(config_test):
         balance_bestFit_history,
         balance_bestFit_growthRates,
         balance_bestFit_volatilities,
+        tradeVolumes,
         nTrades
     ) = eFunction.performOnParams(params = [config_test['tradeParams']+config_test['modelParams'],])
 
@@ -96,6 +97,7 @@ def test(config_test):
     if   growthRate_daily < 0:  print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', 'light_red')} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', 'light_red')} [Monthly]")
     elif growthRate_daily == 0: print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
     else:                       print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
+    print(f"   - Trade Volume:  {int(tradeVolumes[0].item())}")
     print(f"   - Volatility:    {volatility:.8f} [Theoretical 99.7%: {termcolor.colored(f'{volatility_tMin_997*100:.3f} %', 'light_magenta')} / {termcolor.colored(f'+{volatility_tMax_997*100:.3f} %', 'light_blue')}]")
     print(f"   - nTrades:       {int(nTrades[0].item())}")
 
@@ -184,29 +186,29 @@ def seek(config_seek, process_begin_time):
         print(f"      - Elapsed Time:  {(t_1-t_0)/1e6:.3f} ms")
         print(f"      - Validity Rate: {validityRate*100:.3f} %")
         print(f"      - Gap Rate:      {gapRate*100:.3f} %")
-        asp = eFunction.initializeSeeker(tradeParamConfig         = st['tradeParamConfig'], 
-                                         modelParamConfig         = st['modelParamConfig'], 
-                                         nSeekerPoints            = st['nSeekerPoints'],
-                                         parameterBatchSize       = st['parameterBatchSize'], 
-                                         nRepetition              = st['nRepetition'],
-                                         learningRate             = st['learningRate'],
-                                         deltaRatio               = st['deltaRatio'],
-                                         beta_velocity            = st['beta_velocity'],
-                                         beta_momentum            = st['beta_momentum'],
-                                         repopulationRatio        = st['repopulationRatio'],
-                                         repopulationInterval     = st['repopulationInterval'],
-                                         repopulationGuideRatio   = st['repopulationGuideRatio'],
-                                         repopulationDecayRate    = st['repopulationDecayRate'],
-                                         scoring                  = st['scoring'], 
-                                         scoring_maxMDD           = st['scoring_maxMDD'],
-                                         scoring_growthRateWeight = st['scoring_growthRateWeight'],
-                                         scoring_growthRateScaler = st['scoring_growthRateScaler'],
-                                         scoring_volatilityWeight = st['scoring_volatilityWeight'],
-                                         scoring_volatilityScaler = st['scoring_volatilityScaler'],
-                                         scoring_nTradesWeight    = st['scoring_nTradesWeight'],
-                                         scoring_nTradesScaler    = st['scoring_nTradesScaler'],
-                                         scoringSamples           = st['scoringSamples'], 
-                                         terminationThreshold     = st['terminationThreshold'], 
+        asp = eFunction.initializeSeeker(tradeParamConfig           = st['tradeParamConfig'], 
+                                         modelParamConfig           = st['modelParamConfig'], 
+                                         nSeekerPoints              = st['nSeekerPoints'],
+                                         parameterBatchSize         = st['parameterBatchSize'], 
+                                         nRepetition                = st['nRepetition'],
+                                         learningRate               = st['learningRate'],
+                                         deltaRatio                 = st['deltaRatio'],
+                                         beta_velocity              = st['beta_velocity'],
+                                         beta_momentum              = st['beta_momentum'],
+                                         repopulationRatio          = st['repopulationRatio'],
+                                         repopulationInterval       = st['repopulationInterval'],
+                                         repopulationGuideRatio     = st['repopulationGuideRatio'],
+                                         repopulationDecayRate      = st['repopulationDecayRate'],
+                                         scoring                    = st['scoring'], 
+                                         scoring_maxMDD             = st['scoring_maxMDD'],
+                                         scoring_growthRateWeight   = st['scoring_growthRateWeight'],
+                                         scoring_growthRateScaler   = st['scoring_growthRateScaler'],
+                                         scoring_volatilityWeight   = st['scoring_volatilityWeight'],
+                                         scoring_volatilityScaler   = st['scoring_volatilityScaler'],
+                                         scoring_tradeVolumesWeight = st['scoring_tradeVolumesWeight'],
+                                         scoring_tradeVolumesScaler = st['scoring_tradeVolumesScaler'],
+                                         scoringSamples             = st['scoringSamples'], 
+                                         terminationThreshold       = st['terminationThreshold'], 
                                         )
         print(f"    - eFunction Initialization Complete!")
         print(f"      - Exit Function Type:            {st['exitFunctionType']}")
@@ -217,70 +219,70 @@ def seek(config_seek, process_begin_time):
         print(f"      - PSL Re-entry:                  {st['pslReentry']}")
         try:    st['tradeParamConfig'] = tuple(st['tradeParamConfig'])
         except: pass
-        if asp['tradeParamConfig']         != st['tradeParamConfig']:         print(f"      - Trade Parameter Configuration: {st['tradeParamConfig']} -> {asp['tradeParamConfig']}")
-        else:                                                                 print(f"      - Trade Parameter Configuration: {asp['tradeParamConfig']}")
+        if asp['tradeParamConfig']           != st['tradeParamConfig']:           print(f"      - Trade Parameter Configuration: {st['tradeParamConfig']} -> {asp['tradeParamConfig']}")
+        else:                                                                     print(f"      - Trade Parameter Configuration: {asp['tradeParamConfig']}")
         try:    st['modelParamConfig'] = tuple(st['modelParamConfig'])
         except: pass
-        if asp['modelParamConfig']         != st['modelParamConfig']:         print(f"      - Model Parameter Configuratio:  {st['modelParamConfig']} -> {asp['modelParamConfig']}")
-        else:                                                                 print(f"      - Model Parameter Configuratio:  {asp['modelParamConfig']}")
-        if asp['nSeekerPoints']            != st['nSeekerPoints']:            print(f"      - Number of Seeker Points:       {st['nSeekerPoints']} -> {asp['nSeekerPoints']}")
-        else:                                                                 print(f"      - Number of Seeker Points:       {asp['nSeekerPoints']}")
-        if asp['parameterBatchSize']       != st['parameterBatchSize']:       print(f"      - Parameter Batch Size:          {st['parameterBatchSize']} -> {asp['parameterBatchSize']}")
-        else:                                                                 print(f"      - Parameter Batch Size:          {asp['parameterBatchSize']}")
-        if asp['nRepetition']              != st['nRepetition']:              print(f"      - Number of Repetition:          {st['nRepetition']} -> {asp['nRepetition']}")
-        else:                                                                 print(f"      - Number of Repetition:          {asp['nRepetition']}")
-        if asp['learningRate']             != st['learningRate']:             print(f"      - Learning Rate:                 {st['learningRate']} -> {asp['learningRate']}")
-        else:                                                                 print(f"      - Learning Rate:                 {asp['learningRate']}")
-        if asp['deltaRatio']               != st['deltaRatio']:               print(f"      - Delta Ratio:                   {st['deltaRatio']} -> {asp['deltaRatio']}")
-        else:                                                                 print(f"      - Delta Ratio:                   {asp['deltaRatio']}")
-        if asp['beta_velocity']            != st['beta_velocity']:            print(f"      - Velocity Beta:                 {st['beta_velocity']} -> {asp['beta_velocity']}")
-        else:                                                                 print(f"      - Velocity Beta:                 {asp['beta_velocity']}")
-        if asp['beta_momentum']            != st['beta_momentum']:            print(f"      - Momentum Beta:                 {st['beta_momentum']} -> {asp['beta_momentum']}")
-        else:                                                                 print(f"      - Momentum Beta:                 {asp['beta_momentum']}")
-        if asp['repopulationRatio']        != st['repopulationRatio']:        print(f"      - Repopulation Ratio:            {st['repopulationRatio']} -> {asp['repopulationRatio']}")
-        else:                                                                 print(f"      - Repopulation Ratio:            {asp['repopulationRatio']}")
-        if asp['repopulationInterval']     != st['repopulationInterval']:     print(f"      - Repopulation Interval:         {st['repopulationInterval']} -> {asp['repopulationInterval']}")
-        else:                                                                 print(f"      - Repopulation Interval:         {asp['repopulationInterval']}")
-        if asp['repopulationGuideRatio']   != st['repopulationGuideRatio']:   print(f"      - Repopulation Guide Ratio:      {st['repopulationGuideRatio']} -> {asp['repopulationGuideRatio']}")
-        else:                                                                 print(f"      - Repopulation Guide Ratio:      {asp['repopulationGuideRatio']}")
-        if asp['repopulationDecayRate']    != st['repopulationDecayRate']:    print(f"      - Repopulation Decay Rate:       {st['repopulationDecayRate']} -> {asp['repopulationDecayRate']}")
-        else:                                                                 print(f"      - Repopulation Decay Rate:       {asp['repopulationDecayRate']}")
-        if asp['scoring']                  != st['scoring']:                  print(f"      - Scoring:                       {st['scoring']} -> {asp['scoring']}")
-        else:                                                                 print(f"      - Scoring:                       {asp['scoring']}")
-        if asp['scoring_maxMDD']           != st['scoring_maxMDD']:           print(f"      - Scoring Maximum MDD:           {st['scoring_maxMDD']} -> {asp['scoring_maxMDD']}")
-        else:                                                                 print(f"      - Scoring Maximum MDD:           {asp['scoring_maxMDD']}")
-        if asp['scoring_growthRateWeight'] != st['scoring_growthRateWeight']: print(f"      - Scoring Growth Rate Weight:    {st['scoring_growthRateWeight']} -> {asp['scoring_growthRateWeight']}")
-        else:                                                                 print(f"      - Scoring Growth Rate Weight:    {asp['scoring_growthRateWeight']}")
-        if asp['scoring_growthRateScaler'] != st['scoring_growthRateScaler']: print(f"      - Scoring Growth Rate Scaler:    {st['scoring_growthRateScaler']} -> {asp['scoring_growthRateScaler']}")
-        else:                                                                 print(f"      - Scoring Growth Rate Scaler:    {asp['scoring_growthRateScaler']}")
-        if asp['scoring_volatilityWeight'] != st['scoring_volatilityWeight']: print(f"      - Scoring Volatility Weight:     {st['scoring_volatilityWeight']} -> {asp['scoring_volatilityWeight']}")
-        else:                                                                 print(f"      - Scoring Volatility Weight:     {asp['scoring_volatilityWeight']}")
-        if asp['scoring_volatilityScaler'] != st['scoring_volatilityScaler']: print(f"      - Scoring Volatility Scaler:     {st['scoring_volatilityScaler']} -> {asp['scoring_volatilityScaler']}")
-        else:                                                                 print(f"      - Scoring Volatility Scaler:     {asp['scoring_volatilityScaler']}")
-        if asp['scoring_nTradesWeight']    != st['scoring_nTradesWeight']:    print(f"      - Scoring nTrades Weight:        {st['scoring_nTradesWeight']} -> {asp['scoring_nTradesWeight']}")
-        else:                                                                 print(f"      - Scoring nTrades Weight:        {asp['scoring_nTradesWeight']}")
-        if asp['scoring_nTradesScaler']    != st['scoring_nTradesScaler']:    print(f"      - Scoring nTrades Scaler:        {st['scoring_nTradesScaler']} -> {asp['scoring_nTradesScaler']}")
-        else:                                                                 print(f"      - Scoring nTrades Scaler:        {asp['scoring_nTradesScaler']}")
-        if asp['terminationThreshold']     != st['terminationThreshold']:     print(f"      - Termination Threshold:         {st['terminationThreshold']} -> {asp['terminationThreshold']}")
-        else:                                                                 print(f"      - Termination Threshold:         {asp['terminationThreshold']}")
-        st['nSeekerPoints']            = asp['nSeekerPoints']
-        st['nRepetition']              = asp['nRepetition']
-        st['learningRate']             = asp['learningRate']
-        st['deltaRatio']               = asp['deltaRatio']
-        st['beta_velocity']            = asp['beta_velocity']
-        st['beta_momentum']            = asp['beta_momentum']
-        st['repopulationRatio']        = asp['repopulationRatio']
-        st['repopulationInterval']     = asp['repopulationInterval']
-        st['scoring']                  = asp['scoring']
-        st['scoring_maxMDD']           = asp['scoring_maxMDD']
-        st['scoring_growthRateWeight'] = asp['scoring_growthRateWeight']
-        st['scoring_growthRateScaler'] = asp['scoring_growthRateScaler']
-        st['scoring_volatilityWeight'] = asp['scoring_volatilityWeight']
-        st['scoring_volatilityScaler'] = asp['scoring_volatilityScaler']
-        st['scoring_nTradesWeight']    = asp['scoring_nTradesWeight']
-        st['scoring_nTradesScaler']    = asp['scoring_nTradesScaler']
-        st['scoringSamples']           = asp['scoringSamples']
-        st['terminationThreshold']     = asp['terminationThreshold']
+        if asp['modelParamConfig']           != st['modelParamConfig']:           print(f"      - Model Parameter Configuratio:  {st['modelParamConfig']} -> {asp['modelParamConfig']}")
+        else:                                                                     print(f"      - Model Parameter Configuratio:  {asp['modelParamConfig']}")
+        if asp['nSeekerPoints']              != st['nSeekerPoints']:              print(f"      - Number of Seeker Points:       {st['nSeekerPoints']} -> {asp['nSeekerPoints']}")
+        else:                                                                     print(f"      - Number of Seeker Points:       {asp['nSeekerPoints']}")
+        if asp['parameterBatchSize']         != st['parameterBatchSize']:         print(f"      - Parameter Batch Size:          {st['parameterBatchSize']} -> {asp['parameterBatchSize']}")
+        else:                                                                     print(f"      - Parameter Batch Size:          {asp['parameterBatchSize']}")
+        if asp['nRepetition']                != st['nRepetition']:                print(f"      - Number of Repetition:          {st['nRepetition']} -> {asp['nRepetition']}")
+        else:                                                                     print(f"      - Number of Repetition:          {asp['nRepetition']}")
+        if asp['learningRate']               != st['learningRate']:               print(f"      - Learning Rate:                 {st['learningRate']} -> {asp['learningRate']}")
+        else:                                                                     print(f"      - Learning Rate:                 {asp['learningRate']}")
+        if asp['deltaRatio']                 != st['deltaRatio']:                 print(f"      - Delta Ratio:                   {st['deltaRatio']} -> {asp['deltaRatio']}")
+        else:                                                                     print(f"      - Delta Ratio:                   {asp['deltaRatio']}")
+        if asp['beta_velocity']             != st['beta_velocity']:               print(f"      - Velocity Beta:                 {st['beta_velocity']} -> {asp['beta_velocity']}")
+        else:                                                                     print(f"      - Velocity Beta:                 {asp['beta_velocity']}")
+        if asp['beta_momentum']              != st['beta_momentum']:              print(f"      - Momentum Beta:                 {st['beta_momentum']} -> {asp['beta_momentum']}")
+        else:                                                                     print(f"      - Momentum Beta:                 {asp['beta_momentum']}")
+        if asp['repopulationRatio']          != st['repopulationRatio']:          print(f"      - Repopulation Ratio:            {st['repopulationRatio']} -> {asp['repopulationRatio']}")
+        else:                                                                     print(f"      - Repopulation Ratio:            {asp['repopulationRatio']}")
+        if asp['repopulationInterval']       != st['repopulationInterval']:       print(f"      - Repopulation Interval:         {st['repopulationInterval']} -> {asp['repopulationInterval']}")
+        else:                                                                     print(f"      - Repopulation Interval:         {asp['repopulationInterval']}")
+        if asp['repopulationGuideRatio']     != st['repopulationGuideRatio']:     print(f"      - Repopulation Guide Ratio:      {st['repopulationGuideRatio']} -> {asp['repopulationGuideRatio']}")
+        else:                                                                     print(f"      - Repopulation Guide Ratio:      {asp['repopulationGuideRatio']}")
+        if asp['repopulationDecayRate']      != st['repopulationDecayRate']:      print(f"      - Repopulation Decay Rate:       {st['repopulationDecayRate']} -> {asp['repopulationDecayRate']}")
+        else:                                                                     print(f"      - Repopulation Decay Rate:       {asp['repopulationDecayRate']}")
+        if asp['scoring']                    != st['scoring']:                    print(f"      - Scoring:                       {st['scoring']} -> {asp['scoring']}")
+        else:                                                                     print(f"      - Scoring:                       {asp['scoring']}")
+        if asp['scoring_maxMDD']             != st['scoring_maxMDD']:             print(f"      - Scoring Maximum MDD:           {st['scoring_maxMDD']} -> {asp['scoring_maxMDD']}")
+        else:                                                                     print(f"      - Scoring Maximum MDD:           {asp['scoring_maxMDD']}")
+        if asp['scoring_growthRateWeight']   != st['scoring_growthRateWeight']:   print(f"      - Scoring Growth Rate Weight:    {st['scoring_growthRateWeight']} -> {asp['scoring_growthRateWeight']}")
+        else:                                                                     print(f"      - Scoring Growth Rate Weight:    {asp['scoring_growthRateWeight']}")
+        if asp['scoring_growthRateScaler']   != st['scoring_growthRateScaler']:   print(f"      - Scoring Growth Rate Scaler:    {st['scoring_growthRateScaler']} -> {asp['scoring_growthRateScaler']}")
+        else:                                                                     print(f"      - Scoring Growth Rate Scaler:    {asp['scoring_growthRateScaler']}")
+        if asp['scoring_volatilityWeight']   != st['scoring_volatilityWeight']:   print(f"      - Scoring Volatility Weight:     {st['scoring_volatilityWeight']} -> {asp['scoring_volatilityWeight']}")
+        else:                                                                     print(f"      - Scoring Volatility Weight:     {asp['scoring_volatilityWeight']}")
+        if asp['scoring_volatilityScaler']   != st['scoring_volatilityScaler']:   print(f"      - Scoring Volatility Scaler:     {st['scoring_volatilityScaler']} -> {asp['scoring_volatilityScaler']}")
+        else:                                                                     print(f"      - Scoring Volatility Scaler:     {asp['scoring_volatilityScaler']}")
+        if asp['scoring_tradeVolumesWeight'] != st['scoring_tradeVolumesWeight']: print(f"      - Scoring Trade Volumes Weight:  {st['scoring_tradeVolumesWeight']} -> {asp['scoring_tradeVolumesWeight']}")
+        else:                                                                     print(f"      - Scoring Trade Volumes Weight:  {asp['scoring_tradeVolumesWeight']}")
+        if asp['scoring_tradeVolumesScaler'] != st['scoring_tradeVolumesScaler']: print(f"      - Scoring Trade Volumes Scaler:  {st['scoring_tradeVolumesScaler']} -> {asp['scoring_tradeVolumesScaler']}")
+        else:                                                                     print(f"      - Scoring Trade Volumes Scaler:  {asp['scoring_tradeVolumesScaler']}")
+        if asp['terminationThreshold']       != st['terminationThreshold']:       print(f"      - Termination Threshold:         {st['terminationThreshold']} -> {asp['terminationThreshold']}")
+        else:                                                                     print(f"      - Termination Threshold:         {asp['terminationThreshold']}")
+        st['nSeekerPoints']              = asp['nSeekerPoints']
+        st['nRepetition']                = asp['nRepetition']
+        st['learningRate']               = asp['learningRate']
+        st['deltaRatio']                 = asp['deltaRatio']
+        st['beta_velocity']              = asp['beta_velocity']
+        st['beta_momentum']              = asp['beta_momentum']
+        st['repopulationRatio']          = asp['repopulationRatio']
+        st['repopulationInterval']       = asp['repopulationInterval']
+        st['scoring']                    = asp['scoring']
+        st['scoring_maxMDD']             = asp['scoring_maxMDD']
+        st['scoring_growthRateWeight']   = asp['scoring_growthRateWeight']
+        st['scoring_growthRateScaler']   = asp['scoring_growthRateScaler']
+        st['scoring_volatilityWeight']   = asp['scoring_volatilityWeight']
+        st['scoring_volatilityScaler']   = asp['scoring_volatilityScaler']
+        st['scoring_tradeVolumesWeight'] = asp['scoring_tradeVolumesWeight']
+        st['scoring_tradeVolumesScaler'] = asp['scoring_tradeVolumesScaler']
+        st['scoringSamples']             = asp['scoringSamples']
+        st['terminationThreshold']       = asp['terminationThreshold']
 
         #[3-6]: AutoTune Warm Up
         print(f"    - Warming Up eFunction Autotune (This Could Take A Few Minutes)...")
@@ -313,8 +315,9 @@ def seek(config_seek, process_begin_time):
                                    'finalBalance':    _bestResult[2],
                                    'growthRate':      _bestResult[3],
                                    'volatility':      _bestResult[4],
-                                   'score':           _bestResult[5],
-                                   'nTrades':         _bestResult[6]}
+                                   'tradeVolume':     _bestResult[5],
+                                   'score':           _bestResult[6],
+                                   'nTrades':         _bestResult[7]}
                     #Best Result Check
                     if (bestResult is None) or (bestResult['score'] < _bestResult['score']): 
                         bestResult = _bestResult
@@ -354,6 +357,7 @@ def seek(config_seek, process_begin_time):
                              f"      - Final Balance:                  {balance_final:.8f} [{bfgStr_color}][{bfgStr_sign}{balance_final_growth*100:.3f} %][/]\n"
                              f"      - Growth Rate:                    [{grStr_color}]{grStr_sign}{growthRate_interval:.8f} [/]/ [{grStr_color}]{grStr_sign}{growthRate_daily*100:.3f} % [/][Daily] / [{grStr_color}]{grStr_sign}{growthRate_monthly*100:.3f} % [/][Monthly]\n"
                              f"      - Volatility:                     {volatility:.8f} [Theoretical 99.7%: [bright_magenta]{volatility_tMin_997*100:.3f} % [/]/ [bright_cyan]{volatility_tMax_997*100:.3f} %][/]\n"
+                             f"      - Trade Volume:                   {bestResult['tradeVolume']:.8f}\n"
                              f"      - Score:                          {bestResult['score']:.8f}\n"
                              f"      - nTrades:                        {bestResult['nTrades']}"
                             )
@@ -487,8 +491,8 @@ def read(rCord_read):
         print(f"    - Scoring Growth Rate Scaler:    {st['scoring_growthRateScaler']}")
         print(f"    - Scoring Volatility Weight:     {st['scoring_volatilityWeight']}")
         print(f"    - Scoring Volatility Scaler:     {st['scoring_volatilityScaler']}")
-        print(f"    - Scoring nTrades Weight:        {st['scoring_nTradesWeight']}")
-        print(f"    - Scoring nTrades Scaler:        {st['scoring_nTradesScaler']}")
+        print(f"    - Scoring Trade Volumes Weight:  {st['scoring_tradeVolumesWeight']}")
+        print(f"    - Scoring Trade Volumes Scaler:  {st['scoring_tradeVolumesScaler']}")
         print(f"    - Termination Threshold:         {st['terminationThreshold']}")
 
         #[4-7]: Seeker Best Result
@@ -511,6 +515,7 @@ def read(rCord_read):
         elif (growthRate_daily == 0): print(f"      - Growth Rate:      {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
         else:                         print(f"      - Growth Rate:      {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
         print(f"      - Volatility:       {volatility:.8f} [Theoretical 99.7%: {termcolor.colored(f'{volatility_tMin_997*100:.3f} %', 'light_magenta')} / {termcolor.colored(f'+{volatility_tMax_997*100:.3f} %', 'light_blue')}]")
+        print(f"      - Trade Volume:     {pResult_br['tradeVolume']:.8f}")
         print(f"      - Score:            {pResult_br['score']:.8f}")
         print(f"      - nTrades:          {pResult_br['nTrades']}")
 
@@ -551,6 +556,7 @@ def read(rCord_read):
         balance_bestFit_history,
         balance_bestFit_growthRates,
         balance_bestFit_volatilities,
+        tradeVolumes,
         nTrades,
         ) = eFunction.performOnParams(params = params)
         t_1 = time.perf_counter_ns()

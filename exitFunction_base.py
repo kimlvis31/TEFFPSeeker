@@ -171,29 +171,29 @@ class exitFunction():
         return (validityRate, gapRate)
 
     def initializeSeeker(self,
-                         tradeParamConfig:         list,
-                         modelParamConfig:         list, 
-                         nSeekerPoints:            int, 
-                         parameterBatchSize:       int, 
-                         nRepetition:              int,
-                         learningRate:             float, 
-                         deltaRatio:               float,
-                         beta_velocity:            float,
-                         beta_momentum:            float,
-                         repopulationRatio:        float, 
-                         repopulationInterval:     int,
-                         repopulationGuideRatio:   float,
-                         repopulationDecayRate:    float,
-                         scoring:                  str,
-                         scoring_maxMDD:           int | float,
-                         scoring_growthRateWeight: int | float,
-                         scoring_growthRateScaler: int | float,
-                         scoring_volatilityWeight: int | float,
-                         scoring_volatilityScaler: int | float,
-                         scoring_nTradesWeight:    int | float,
-                         scoring_nTradesScaler:    int | float,
-                         scoringSamples:           int,
-                         terminationThreshold:     float) -> None:
+                         tradeParamConfig:           list,
+                         modelParamConfig:           list, 
+                         nSeekerPoints:              int, 
+                         parameterBatchSize:         int, 
+                         nRepetition:                int,
+                         learningRate:               float, 
+                         deltaRatio:                 float,
+                         beta_velocity:              float,
+                         beta_momentum:              float,
+                         repopulationRatio:          float, 
+                         repopulationInterval:       int,
+                         repopulationGuideRatio:     float,
+                         repopulationDecayRate:      float,
+                         scoring:                    str,
+                         scoring_maxMDD:             int | float,
+                         scoring_growthRateWeight:   int | float,
+                         scoring_growthRateScaler:   int | float,
+                         scoring_volatilityWeight:   int | float,
+                         scoring_volatilityScaler:   int | float,
+                         scoring_tradeVolumesWeight: int | float,
+                         scoring_tradeVolumesScaler: int | float,
+                         scoringSamples:             int,
+                         terminationThreshold:       float) -> None:
 
         #[1]: Seeker Parameters Check
         #---[1-1]: tradeParamConfig
@@ -268,12 +268,12 @@ class exitFunction():
         #---[1-19]: scoring_volatilityScaler
         if type(scoring_volatilityScaler) not in (float, int): scoring_volatilityScaler = 0.1
         if not (0.0 <= scoring_volatilityScaler):              scoring_volatilityScaler = 0.1
-        #---[1-20]: scoring_nTradesWeight
-        if type(scoring_nTradesWeight) not in (float, int): scoring_nTradesWeight = 1.0
-        if not (0.0 <= scoring_nTradesWeight):              scoring_nTradesWeight = 1.0
-        #---[1-21]: scoring_nTradesScaler
-        if type(scoring_nTradesScaler) not in (float, int): scoring_nTradesScaler = 0.0001
-        if not (0.0 <= scoring_nTradesScaler):              scoring_nTradesScaler = 0.0001
+        #---[1-20]: scoring_tradeVolumesWeight
+        if type(scoring_tradeVolumesWeight) not in (float, int): scoring_tradeVolumesWeight = 1.0
+        if not (0.0 <= scoring_tradeVolumesWeight):              scoring_tradeVolumesWeight = 1.0
+        #---[1-21]: scoring_tradeVolumesScaler
+        if type(scoring_tradeVolumesScaler) not in (float, int): scoring_tradeVolumesScaler = 1.0
+        if not (0.0 <= scoring_tradeVolumesScaler):              scoring_tradeVolumesScaler = 1.0
         #---[1-22]: scoringSamples
         if type(scoringSamples) is not int: scoringSamples = 20
         if not (1 <= scoringSamples):       scoringSamples = 20
@@ -315,42 +315,42 @@ class exitFunction():
 
         #[7]: Seeker Update
         self.__seeker = {#Seeker Parameters
-                         'tradeParamConfig':         tradeParamConfig,
-                         'modelParamConfig':         modelParamConfig,
-                         'parameterBatchSize':       parameterBatchSize,
-                         'nSeekerPoints':            nSeekerPoints,
-                         'nRepetition':              nRepetition,
-                         'learningRate':             learningRate,
-                         'deltaRatio':               deltaRatio,
-                         'beta_velocity':            beta_velocity,
-                         'beta_momentum':            beta_momentum,
-                         'repopulationRatio':        repopulationRatio,
-                         'repopulationInterval':     repopulationInterval,
-                         'repopulationGuideRatio':   repopulationGuideRatio,
-                         'repopulationDecayRate':    repopulationDecayRate,
-                         'scoring':                  scoring,
-                         'scoring_maxMDD':           scoring_maxMDD,
-                         'scoring_growthRateWeight': scoring_growthRateWeight,
-                         'scoring_growthRateScaler': scoring_growthRateScaler,
-                         'scoring_volatilityWeight': scoring_volatilityWeight,
-                         'scoring_volatilityScaler': scoring_volatilityScaler,
-                         'scoring_nTradesWeight':    scoring_nTradesWeight,
-                         'scoring_nTradesScaler':    scoring_nTradesScaler,
-                         'scoringSamples':           scoringSamples,
-                         'terminationThreshold':     terminationThreshold,
+                         'tradeParamConfig':           tradeParamConfig,
+                         'modelParamConfig':           modelParamConfig,
+                         'parameterBatchSize':         parameterBatchSize,
+                         'nSeekerPoints':              nSeekerPoints,
+                         'nRepetition':                nRepetition,
+                         'learningRate':               learningRate,
+                         'deltaRatio':                 deltaRatio,
+                         'beta_velocity':              beta_velocity,
+                         'beta_momentum':              beta_momentum,
+                         'repopulationRatio':          repopulationRatio,
+                         'repopulationInterval':       repopulationInterval,
+                         'repopulationGuideRatio':     repopulationGuideRatio,
+                         'repopulationDecayRate':      repopulationDecayRate,
+                         'scoring':                    scoring,
+                         'scoring_maxMDD':             scoring_maxMDD,
+                         'scoring_growthRateWeight':   scoring_growthRateWeight,
+                         'scoring_growthRateScaler':   scoring_growthRateScaler,
+                         'scoring_volatilityWeight':   scoring_volatilityWeight,
+                         'scoring_volatilityScaler':   scoring_volatilityScaler,
+                         'scoring_tradeVolumesWeight': scoring_tradeVolumesWeight,
+                         'scoring_tradeVolumesScaler': scoring_tradeVolumesScaler,
+                         'scoringSamples':             scoringSamples,
+                         'terminationThreshold':       terminationThreshold,
                          #Process Variables
-                         '_params_rounding_factors': params_rounding_factors,
-                         '_params_fixed_mask':       params_fixed_mask,
-                         '_params_fixed_values':     params_fixed_values,
-                         '_params_min':              params_min,
-                         '_params_max':              params_max,
-                         '_params_base':             params_base,
-                         '_velocity':                velocity,
-                         '_momentum':                momentum,
-                         '_currentRepetition':       0,
-                         '_currentStep':             1,
-                         '_bestResults':             [[] for _ in range (nRepetition)],
-                         '_bestScore_delta_ema':     None}
+                         '_params_rounding_factors':   params_rounding_factors,
+                         '_params_fixed_mask':         params_fixed_mask,
+                         '_params_fixed_values':       params_fixed_values,
+                         '_params_min':                params_min,
+                         '_params_max':                params_max,
+                         '_params_base':               params_base,
+                         '_velocity':                  velocity,
+                         '_momentum':                  momentum,
+                         '_currentRepetition':         0,
+                         '_currentStep':               1,
+                         '_bestResults':               [[] for _ in range (nRepetition)],
+                         '_bestScore_delta_ema':       None}
         self.parameterBatchSize = self.__seeker['parameterBatchSize']
 
         #[8]: Applied Seeker Parameters
@@ -375,8 +375,8 @@ class exitFunction():
                    'scoring_growthRateScaler',
                    'scoring_volatilityWeight',
                    'scoring_volatilityScaler',
-                   'scoring_nTradesWeight',
-                   'scoring_nTradesScaler',
+                   'scoring_tradeVolumesWeight',
+                   'scoring_tradeVolumesScaler',
                    'scoringSamples',
                    'terminationThreshold'
                   )
@@ -479,47 +479,47 @@ class exitFunction():
         #[5]: Return
         return params_test, params_plus, params_minus
     
-    def __scoreResults(self, balance_finals, balance_bestFit_growthRates, balance_bestFit_volatilities, nTrades):
-        scoring                  = self.__seeker['scoring']
-        scoring_maxMDD           = self.__seeker['scoring_maxMDD']
-        scoring_growthRateWeight = self.__seeker['scoring_growthRateWeight']
-        scoring_growthRateScaler = self.__seeker['scoring_growthRateScaler']
-        scoring_volatilityWeight = self.__seeker['scoring_volatilityWeight']
-        scoring_volatilityScaler = self.__seeker['scoring_volatilityScaler']
-        scoring_nTradesWeight    = self.__seeker['scoring_nTradesWeight']
-        scoring_nTradesScaler    = self.__seeker['scoring_nTradesScaler']
+    def __scoreResults(self, balance_finals, balance_bestFit_growthRates, balance_bestFit_volatilities, tradeVolumes):
+        scoring                    = self.__seeker['scoring']
+        scoring_maxMDD             = self.__seeker['scoring_maxMDD']
+        scoring_growthRateWeight   = self.__seeker['scoring_growthRateWeight']
+        scoring_growthRateScaler   = self.__seeker['scoring_growthRateScaler']
+        scoring_volatilityWeight   = self.__seeker['scoring_volatilityWeight']
+        scoring_volatilityScaler   = self.__seeker['scoring_volatilityScaler']
+        scoring_tradeVolumesWeight = self.__seeker['scoring_tradeVolumesWeight']
+        scoring_tradeVolumesScaler = self.__seeker['scoring_tradeVolumesScaler']
 
         #[1]: TYPE - 'FINALBALANCE'
-        if (scoring == 'FINALBALANCE'):
+        if scoring == 'FINALBALANCE':
             scores = 1-torch.exp(-balance_finals/self.balance_initial)
 
         #[2]: TYPE - 'GROWTHRATE'
-        elif (scoring == 'GROWTHRATE'):
+        elif scoring == 'GROWTHRATE':
             gr_scaled = balance_bestFit_growthRates * scoring_growthRateScaler
             scores = torch.where(balance_bestFit_growthRates < 0,
                                  1/(1-gr_scaled),
                                  1+gr_scaled)
 
         #[3]: TYPE - 'VOLATILITY'
-        elif (scoring == 'VOLATILITY'):
-            vol_scaled     = balance_bestFit_volatilities * scoring_volatilityScaler
-            nTrades_scaled = nTrades                      * scoring_nTradesScaler
-            scores_volatility = torch.exp(-vol_scaled)         ** scoring_volatilityWeight
-            scores_nTrades    = (1-torch.exp(-nTrades_scaled)) ** scoring_nTradesWeight
-            scores = scores_volatility * scores_nTrades
+        elif scoring == 'VOLATILITY':
+            vol_scaled          = balance_bestFit_volatilities * scoring_volatilityScaler
+            tradeVolumes_scaled = tradeVolumes                 * scoring_tradeVolumesScaler
+            scores_volatility   = torch.exp(-vol_scaled)         ** scoring_volatilityWeight
+            scores_tradeVolumes = (1-torch.exp(-tradeVolumes_scaled)) ** scoring_tradeVolumesWeight
+            scores = scores_volatility * scores_tradeVolumes
 
         #[4]: TYPE - 'SHARPERATIO'
-        elif (scoring == 'SHARPERATIO'):
-            gr_scaled      = balance_bestFit_growthRates  * scoring_growthRateScaler
-            vol_scaled     = balance_bestFit_volatilities * scoring_volatilityScaler
-            nTrades_scaled = nTrades                      * scoring_nTradesScaler
+        elif scoring == 'SHARPERATIO':
+            gr_scaled           = balance_bestFit_growthRates  * scoring_growthRateScaler
+            vol_scaled          = balance_bestFit_volatilities * scoring_volatilityScaler
+            tradeVolumes_scaled = tradeVolumes                 * scoring_tradeVolumesScaler
             scores_gr = torch.where(balance_bestFit_growthRates < 0,
                                     1/(1-gr_scaled),
                                     1+gr_scaled
                                     ) ** scoring_growthRateWeight
-            scores_volatility = torch.exp(-vol_scaled)         ** scoring_volatilityWeight
-            scores_nTrades    = (1-torch.exp(-nTrades_scaled)) ** scoring_nTradesWeight
-            scores = scores_gr * scores_volatility * scores_nTrades
+            scores_volatility   = torch.exp(-vol_scaled)         ** scoring_volatilityWeight
+            scores_tradeVolumes = (1-torch.exp(-tradeVolumes_scaled)) ** scoring_tradeVolumesWeight
+            scores = scores_gr * scores_volatility * scores_tradeVolumes
             
         #[5]: Maximum Drawdown Filtering
         volatility_tMin_997 = torch.exp(-balance_bestFit_volatilities*3)-1
@@ -558,18 +558,19 @@ class exitFunction():
         t_elapsed_gpu_simulation_total_ms = 0
         for params_test_batch in params_test_batches:
             #[4-1]: Batch Processing
-            balances, t_elapsed_gpu_ms = self.__performOnParams_Timed(params = params_test_batch)
+            results, t_elapsed_gpu_ms = self.__performOnParams_Timed(params = params_test_batch)
             (balance_finals, 
              balance_bestFit_growthRates, 
              balance_bestFit_volatilities,
-             nTrades) = balances
+             tradeVolumes,
+             nTrades) = results
             t_elapsed_gpu_simulation_total_ms += t_elapsed_gpu_ms
             
             #[4-2]: Scoring
             scores_batch = self.__scoreResults(balance_finals               = balance_finals,
                                                balance_bestFit_growthRates  = balance_bestFit_growthRates,
                                                balance_bestFit_volatilities = balance_bestFit_volatilities,
-                                               nTrades                      = nTrades)
+                                               tradeVolumes                 = tradeVolumes)
             scores.append(scores_batch)
             
             #[4-3]: Best Result Record
@@ -584,17 +585,18 @@ class exitFunction():
                           round(float(balance_finals[max_idx]),               12), #Final Wallet Balance
                           round(float(balance_bestFit_growthRates[max_idx]),  12), #Growth Rate
                           round(float(balance_bestFit_volatilities[max_idx]), 12), #Volatility
+                          round(float(tradeVolumes[max_idx]),                 12), #Trade Volume
                           round(float(scores_batch[max_idx]),                 12), #Score
                           round(int(nTrades[max_idx])))                            #nTrades
             bestResults.append(bestResult)
         t_processing_sim_paramsSet_ms = t_elapsed_gpu_simulation_total_ms/len(params_test)
 
         #[5]: Best Reulst Record
-        bestResult          = max(bestResults, key=lambda x: x[5])
+        bestResult          = max(bestResults, key=lambda x: x[6])
         bestResults         = seeker['_bestResults']
         bestResults_thisRep = bestResults[nRepetition_current]
         if bestResults_thisRep:
-            if bestResults_thisRep[-1][5] < bestResult[5]: bestResult_eff = bestResult
+            if bestResults_thisRep[-1][6] < bestResult[6]: bestResult_eff = bestResult
             else:                                          bestResult_eff = bestResults_thisRep[-1]
         else:
             bestResult_eff = bestResult
@@ -636,18 +638,18 @@ class exitFunction():
 
         #[8]: Compute Best Score Delta EMA
         scoringSamples           = seeker['scoringSamples']
-        bestScore                = bestResult[5]
+        bestScore                = bestResult[6]
         bestScore_delta_ema      = None
         bestScore_delta_ema_prev = seeker['_bestScore_delta_ema']
         if (scoringSamples+1 <= currentStep):
             #[8-1]: Calculate SMA (the first value)
             if bestScore_delta_ema_prev is None:
-                bestScore_deltas_sum = sum((bestResults_thisRep[rIndex][5]/max(bestResults_thisRep[rIndex-1][5], 1e-12))-1 for rIndex in range (1, len(bestResults_thisRep)))
+                bestScore_deltas_sum = sum((bestResults_thisRep[rIndex][6]/max(bestResults_thisRep[rIndex-1][6], 1e-12))-1 for rIndex in range (1, len(bestResults_thisRep)))
                 bestScore_deltas_sma = bestScore_deltas_sum/scoringSamples
                 bestScore_delta_ema = bestScore_deltas_sma
             #[8-2]: Calculate EMA
             else:
-                bestScore_delta = (bestScore/max(bestResults_thisRep[-2][5], 1e-12))-1
+                bestScore_delta = (bestScore/max(bestResults_thisRep[-2][6], 1e-12))-1
                 ema_k = 2/(scoringSamples+1)
                 bestScore_delta_ema = (bestScore_delta*ema_k) + (bestScore_delta_ema_prev*(1-ema_k))
             #[8-4]: Update EMA
@@ -776,7 +778,8 @@ class exitFunction():
             balance_wallet_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = PTDTYPE, requires_grad = False)
             balance_margin_history  = torch.empty(size = (size_paramsBatch, size_dataLen), device = 'cuda', dtype = PTDTYPE, requires_grad = False)
         balance_ftIndexes = torch.full(size = (size_paramsBatch,), fill_value = -1, device = 'cuda', dtype = torch.int32, requires_grad = False)
-        nTrades = torch.zeros(size = (size_paramsBatch,), device = 'cuda', dtype = PTDTYPE, requires_grad = False)
+        tradeVolumes = torch.zeros(size = (size_paramsBatch,), device = 'cuda', dtype = PTDTYPE, requires_grad = False)
+        nTrades      = torch.zeros(size = (size_paramsBatch,), device = 'cuda', dtype = PTDTYPE, requires_grad = False)
 
         #[4]: Processing
         self.modelBatchProcessFunction(#Constants
@@ -811,6 +814,7 @@ class exitFunction():
                                        balance_wallet_history       = balance_wallet_history,
                                        balance_margin_history       = balance_margin_history,
                                        balance_ftIndexes            = balance_ftIndexes,
+                                       tradeVolumes_rb              = tradeVolumes,
                                        nTrades_rb                   = nTrades,
                                        #Sizes
                                        size_paramsBatch = size_paramsBatch,
@@ -826,7 +830,7 @@ class exitFunction():
 
         #[5]: Return Result
         if self.isSeeker: 
-            return balance_finals, balance_bestFit_growthRates, balance_bestFit_volatilities, nTrades
+            return balance_finals, balance_bestFit_growthRates, balance_bestFit_volatilities, tradeVolumes, nTrades
         else:
             indexGrid         = torch.arange(size_dataLen, device='cuda', dtype=PTDTYPE).unsqueeze(0)
             ftIndexes_bc      = balance_ftIndexes.unsqueeze(1)
@@ -834,7 +838,7 @@ class exitFunction():
             balance_bestFit_x = indexGrid - ftIndexes_bc
             balance_bestFit_history_raw = self.balance_initial * torch.exp(balance_bestFit_growthRates.unsqueeze(1)*balance_bestFit_x + balance_bestFit_intercepts.unsqueeze(1))
             balance_bestFit_history = torch.where(mask_validRegion, balance_bestFit_history_raw, float('nan'))
-            return balance_wallet_history, balance_margin_history, balance_bestFit_history, balance_bestFit_growthRates, balance_bestFit_volatilities, nTrades
+            return balance_wallet_history, balance_margin_history, balance_bestFit_history, balance_bestFit_growthRates, balance_bestFit_volatilities, tradeVolumes, nTrades
 
     @BPST_Timer
     def __performOnParams_Timed(self, params: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
