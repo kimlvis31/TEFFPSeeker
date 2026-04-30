@@ -152,7 +152,9 @@ def processBatch(
             st_tefVal_prev                = st_tefVal_prev,
             st_tefVal_absMax_prev         = st_tefVal_absMax_prev,
             st_mmacd_msDeltaAbsMARel_prev = st_mmacd_msDeltaAbsMARel_prev,
-            st_isDownhill_prev            = st_isDownhill_prev
+            st_isDownhill_prev            = st_isDownhill_prev,
+            #Position Status
+            entryPrice = entryPrice
             )
         #TEF Value END <!!! EDIT BELOW FOR MODEL IMPLEMENTATION !!!> ----------------------------------------------------------------------------------------------------------------------------------
 
@@ -274,7 +276,9 @@ def getTEFValue(
     st_tefVal_prev,
     st_tefVal_absMax_prev,
     st_mmacd_msDeltaAbsMARel_prev,
-    st_isDownhill_prev
+    st_isDownhill_prev,
+    #Position Status
+    entryPrice
     ):
 
     #[1]: Base Data - Analysis
