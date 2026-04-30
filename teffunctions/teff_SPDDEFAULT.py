@@ -150,9 +150,7 @@ def processBatch(
             mp_length_L   = mp_length_L,
             #Model State Trackers
             st_tefVal_prev = st_tefVal_prev,
-            st_lst_prev    = st_lst_prev,
-            #Position Status
-            entryPrice = entryPrice
+            st_lst_prev    = st_lst_prev
             )
         #TEF Value END <!!! EDIT BELOW FOR MODEL IMPLEMENTATION !!!> ----------------------------------------------------------------------------------------------------------------------------------
 
@@ -276,9 +274,7 @@ def getTEFValue(
     mp_length_L,
     #Model State Trackers
     st_tefVal_prev,
-    st_lst_prev,
-    #Position Status
-    entryPrice
+    st_lst_prev
     ):
 
     #[1]: Base Data - Analysis
