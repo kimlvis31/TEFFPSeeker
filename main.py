@@ -76,12 +76,7 @@ def test(config_test):
         nTrades
     ) = eFunction.performOnParams(params = [config_test['tradeParams']+config_test['modelParams'],])
 
-    #[6]: Matplot Drawing
-    matplotlib.pyplot.plot(balance_wallet_history[0,:].cpu(),  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1)
-    matplotlib.pyplot.plot(balance_margin_history[0,:].cpu(),  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1)
-    matplotlib.pyplot.plot(balance_bestFit_history[0,:].cpu(), color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=1)
-
-    #[7]: Summary
+    #[6]: Summary
     balance_final        = balance_wallet_history[0,-1].item()
     balance_final_growth = balance_final/config_test['balance_initial']-1
     growthRate_interval  = balance_bestFit_growthRates[0].item()
@@ -97,15 +92,72 @@ def test(config_test):
     if   growthRate_daily < 0:  print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', 'light_red')} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', 'light_red')} [Monthly]")
     elif growthRate_daily == 0: print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'{growthRate_daily*100:.3f} %', None)} [Daily] / {termcolor.colored(f'{growthRate_monthly*100:.3f} %', None)} [Monthly]")
     else:                       print(f"   - Growth Rate:   {growthRate_interval:.8f} / {termcolor.colored(f'+{growthRate_daily*100:.3f} %', 'light_green')} [Daily] / {termcolor.colored(f'+{growthRate_monthly*100:.3f} %', 'light_green')} [Monthly]")
-    print(f"   - Trade Volume:  {int(tradeVolumes[0].item())}")
+    print(f"   - Trade Volume:  {tradeVolumes[0].item():.8f}")
     print(f"   - Volatility:    {volatility:.8f} [Theoretical 99.7%: {termcolor.colored(f'{volatility_tMin_997*100:.3f} %', 'light_magenta')} / {termcolor.colored(f'+{volatility_tMax_997*100:.3f} %', 'light_blue')}]")
     print(f"   - nTrades:       {int(nTrades[0].item())}")
 
-    #[8]: Matplot Show
-    matplotlib.pyplot.title(f"[PARAMETER TEST] Wallet & Margin Balance History")
+    #[7]: Matplot Drawing
+    #---[7-1]: Prepare Subplots
+    fig, axes = matplotlib.pyplot.subplots(2, 2, figsize=(16, 12), sharex='all')
+    ax1, ax2, ax3, ax4 = axes.flatten()
+    fig.subplots_adjust(hspace=0.2, wspace=0.15)
+
+    #---[7-2]: Prepare Data
+    idx_close = descriptor['indexIdentifier']['KLINE_CLOSEPRICE']
+    hist_len = balance_wallet_history.shape[1]
+    close_p  = linearizedAnalysis[-hist_len:, idx_close]
+    bwh  = balance_wallet_history.cpu()
+    mwh  = balance_margin_history.cpu()
+    bbfh = balance_bestFit_history.cpu()
+
+    #---[7-3]: Price Subplot
+    ax1.plot(close_p, color='#1f77b4', linewidth=1.2, label='Close Price')
+    ax1.set_title("Price (Close Price)")
+    ax1.set_ylabel("Price")
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(loc='upper left', fontsize=8)
+
+    #---[7-4]: Balance History (Linear Scale)
+    ax2.plot(bwh[0,:],  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1, zorder=4, label='Wallet (Best)')
+    ax2.plot(mwh[0,:],  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1, zorder=3, label='Margin (Best)')
+    ax2.plot(bbfh[0,:], color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=2, zorder=5, label='Best Fit')
+    ax2.set_title("Balance History (Linear Scaled)")
+    ax2.set_ylabel("Balance")
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(loc='upper left', fontsize=8)
+
+    #---[7-5]: Balance History (Log Scaled)
+    ax3.plot(bwh[0,:],  color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1, zorder=4, label='Wallet (Best)')
+    ax3.plot(mwh[0,:],  color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1, zorder=3, label='Margin (Best)')
+    ax3.plot(bbfh[0,:], color=(0.8, 0.5, 0.8, 1.0), linestyle='solid',  linewidth=2, zorder=5, label='Best Fit')
+    ax3.set_yscale('log')
+    ax3.set_title("Balance History (Log Scaled)")
+    ax3.set_ylabel("Log Balance")
+    ax3.set_xlabel("Time Step")
+    ax3.grid(True, alpha=0.3, which='both', linestyle='--')
+    ax3.legend(loc='upper left', fontsize=8)
+
+    #---[7-6]: Balance Deviation from Best Fit (%)
+    wallet_0  = bwh[0,:]
+    margin_0  = mwh[0,:]
+    bestFit_0 = bbfh[0,:]
+    dev_wallet = (wallet_0 - bestFit_0) / bestFit_0 * 100
+    dev_margin = (margin_0 - bestFit_0) / bestFit_0 * 100
+    ax4.plot(dev_wallet, color=(0.0, 0.7, 1.0, 1.0), linestyle='solid',  linewidth=1.5, zorder=4, label='Wallet Deviation (%)')
+    ax4.plot(dev_margin, color=(0.0, 0.7, 1.0, 0.5), linestyle='dashed', linewidth=1.5, zorder=3, label='Margin Deviation (%)')
+    ax4.axhline(0, color=(0.8, 0.5, 0.8, 1.0), linestyle='solid', linewidth=2, zorder=5, label='Best Fit (0%)')
+    ax4.set_title("Balance Deviation from Best Fit (%)")
+    ax4.set_ylabel("Deviation (%)")
+    ax4.set_xlabel("Time Step")
+    ax4.grid(True, alpha=0.3, linestyle='--')
+    ax4.legend(loc='upper left', fontsize=8)
+
+    #---[7-7]: Matplot Show
+    fig.suptitle(f"[PARAMETER TEST] Wallet & Margin Balance History", fontsize=18, fontweight='bold')
+    matplotlib.pyplot.tight_layout(rect=[0, 0.03, 1, 0.96])
     matplotlib.pyplot.show()
 
-    #[9]: System Message
+    #[8]: System Message
     print(termcolor.colored("[PARAMETER TEST COMPLETE]", 'light_blue'))
 #TEST FUNCTION END ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
