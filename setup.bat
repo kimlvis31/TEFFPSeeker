@@ -1,5 +1,5 @@
 @echo off
-title RQPFPSeeker Setup
+title TEFFPSeeker Setup
 
 echo [System] Starting Environment Setup...
 echo -------------------------------------------------------

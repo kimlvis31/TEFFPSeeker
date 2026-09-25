@@ -1,5 +1,5 @@
 @echo off
-title RQPFPSeeker Launcher
+title TEFFPSeeker Launcher
 
 :: [1]: Check Virtual Environment
 if exist .venv goto FOUND
@@ -14,7 +14,7 @@ echo [System] Activating virtual environment...
 call .venv\Scripts\activate.bat
 
 :: [3]: Start main.py
-echo [System] Starting RQPFPSeeker...
+echo [System] Starting TEFFPSeeker...
 python main.py
 
 :: [4]: Termination

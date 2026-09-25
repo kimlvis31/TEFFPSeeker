@@ -12,7 +12,7 @@ echo "[System] Activating virtual environment..."
 source .venv/bin/activate
 
 # [3]: Run main.py
-echo "[System] Starting RQPFPSeeker..."
+echo "[System] Starting TEFFPSeeker..."
 python3 main.py
 
 # [4]: Termination
