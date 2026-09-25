@@ -51,6 +51,7 @@ def test(config_test):
                              balance_allocation_max = config_test['balance_allocation_max'],
                              leverage               = config_test['leverage'], 
                              isolated               = config_test['isolated'],
+                             tradingFee             = config_test['tradingFee'],
                              pslReentry             = config_test['pslReentry'],
                              precision_price        = descriptor['pricePrecision'],
                              precision_quantity     = descriptor['quantityPrecision'],
@@ -221,6 +222,7 @@ def seek(config_seek, process_begin_time):
                                  balance_allocation_max = st['balance_allocation_max'],
                                  leverage               = st['leverage'],
                                  isolated               = st['isolated'],
+                                 tradingFee             = st['tradingFee'],
                                  pslReentry             = st['pslReentry'],
                                  precision_price        = descriptor['pricePrecision'],
                                  precision_quantity     = descriptor['quantityPrecision'],
@@ -268,6 +270,7 @@ def seek(config_seek, process_begin_time):
         print(f"      - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"      - Leverage:                      {st['leverage']}")
         print(f"      - Isolated:                      {st['isolated']}")
+        print(f"      - Trading Fee:                   {st['tradingFee']*100:.2f} %")
         print(f"      - PSL Re-entry:                  {st['pslReentry']}")
         try:    st['tradeParamConfig'] = tuple(st['tradeParamConfig'])
         except: pass
@@ -453,6 +456,8 @@ def seek(config_seek, process_begin_time):
         tc = {"leverage":              st['leverage'],
               "isolated":              st['isolated'],
               "direction":             "BOTH",
+              "orderType":             "MARKET",
+              "orderOffset":           0.0,
               "fullStopLossImmediate": bResult['tradeParams'][0],
               "fullStopLossClose":     bResult['tradeParams'][1],
               "postStopLossReentry":   st['pslReentry'],
@@ -523,6 +528,7 @@ def read(rCord_read):
         print(f"    - Maximum Balance Allocation:    {st['balance_allocation_max']}")
         print(f"    - Leverage:                      {st['leverage']}")
         print(f"    - Isolated:                      {st['isolated']}")
+        print(f"    - Trading Fee:                   {st['tradingFee']*100:.2f} %")
         print(f"    - PSL Re-Entry:                  {st['pslReentry']}")
         print(f"    - Trade Parameter Configuration: {tuple(st['tradeParamConfig'])}")
         print(f"    - Model Parameter Configuration: {tuple(st['modelParamConfig'])}")
@@ -578,6 +584,7 @@ def read(rCord_read):
                                  balance_allocation_max = st['balance_allocation_max'],
                                  leverage               = st['leverage'],
                                  isolated               = st['isolated'],
+                                 tradingFee             = st['tradingFee'],
                                  pslReentry             = st['pslReentry'],
                                  precision_price        = descriptor['pricePrecision'],
                                  precision_quantity     = descriptor['quantityPrecision'],

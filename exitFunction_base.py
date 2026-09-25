@@ -16,7 +16,6 @@ elif DATATYPE_PRECISION == 64: PTDTYPE = torch.float64
 else:                          PTDTYPE = torch.float32
 
 ALLOCATIONRATIO    = 0.95
-TRADINGFEE         = 0.0005
 MARKETOPENLOSSRATE = 0.0015
 
 BPST_KVALUE        = 2/(100+1)
@@ -63,7 +62,7 @@ def BPST_Timer(func):
 
 #Exit Function Model ====================================================================================================================================================================================================================================
 class exitFunction():
-    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, isolated, pslReentry, precision_price, precision_quantity, precision_quote, lmTable):
+    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, isolated, tradingFee, pslReentry, precision_price, precision_quantity, precision_quote, lmTable):
         #[1]: System
         self.MODELNAME                 = modelName
         self.model                     = TEFFUNCTIONS_MODEL[self.MODELNAME]
@@ -74,6 +73,7 @@ class exitFunction():
         self.balance_allocation_max    = float('inf') if balance_allocation_max is None else round(balance_allocation_max, precision_quote)
         self.leverage                  = leverage
         self.isolated                  = isolated
+        self.tradingFee                = tradingFee
         self.pslReentry                = pslReentry
         self.precision_price           = precision_price
         self.precision_quantity        = precision_quantity
@@ -791,7 +791,7 @@ class exitFunction():
                                        leverage               = self.leverage,
                                        isolated               = self.isolated,
                                        allocationRatio        = ALLOCATIONRATIO,
-                                       tradingFee             = TRADINGFEE,
+                                       tradingFee             = self.tradingFee,
                                        marketOpenLossRate     = MARKETOPENLOSSRATE,
                                        lmTable                = self.lmTable,
                                        lmTable_stride         = self.lmTable.stride(0),
