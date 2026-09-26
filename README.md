@@ -73,9 +73,9 @@ TEFFP Seeker sits downstream of ATM-Eta in the strategy development workflow. AT
 
 The diagram above shows the flow of a single search. It consists of three stages:
 
-* **Data preparation** — The Linearized Analysis exported from ATM-Eta is checked for the price and analysis keys the selected TEF function requires, trimmed to its first valid close price, gap-filled, and converted into contiguous GPU tensors. This happens once per search target.
-* **Search loop** — Using the seeker parameters in `config.py`, seekers are spawned at random positions within the parameter ranges defined by the trade parameters and the TEF function model. At each step, test parameter sets are generated from the seekers' current positions and dispatched to the GPU in batches. Once all batches are processed, the results are scored, and the seekers are moved by an Adam-style optimizer combined with a self-developed repopulation scheme. The loop repeats until the termination condition is met.
-* **Result output** — The best parameter set and the history of improvements are saved, and the best set of each target is exported as an ATM-Eta Trade Configuration.
+* **Data Preparation** — The Linearized Analysis exported from ATM-Eta is checked for the price and analysis keys the selected TEF function requires, trimmed to its first valid close price, gap-filled, and converted into contiguous GPU tensors. This happens once per search target.
+* **Search Loop** — Using the seeker parameters in `config.py`, seekers are spawned at random positions within the parameter ranges defined by the trade parameters and the TEF function model. At each step, test parameter sets are generated from the seekers' current positions and dispatched to the GPU in batches. Once all batches are processed, the results are scored, and the seekers are moved by an Adam-style optimizer combined with a self-developed repopulation scheme. The loop repeats until the termination condition is met.
+* **Result Output** — The best parameter set and the history of improvements are saved, and the best set of each target is exported as an ATM-Eta Trade Configuration.
 
 Details of each stage are covered in [GPU Simulation Engine](#gpu-simulation-engine) and [Parameter Search](#parameter-search).
 
@@ -110,7 +110,7 @@ Details of each stage are covered in [GPU Simulation Engine](#gpu-simulation-eng
 <a name="gpu-simulation-engine"></a>
 ### ⚡ GPU Simulation Engine ###
 
-#### **One Lane per Parameter Set**
+#### 🔹 **One Lane Per Parameter Set**
 
 A simulation batch is a 2D problem: many parameter sets, each stepping through the same long time series. TEFFP Seeker maps each parameter set to one lane of a Triton program, and every lane walks through the full time series sequentially, carrying its own balance, position, and TEF model state in registers. Price and analysis data are shared read-only across all lanes, so memory traffic scales with the length of the data rather than with the number of parameter sets.
 
@@ -118,7 +118,7 @@ Block size, warp count, and pipeline stages are selected by **Triton autotuning*
 
 <br>
 
-#### **Data Preprocessing**
+#### 🔹 **Data Preprocessing**
 
 Before simulation, the exported analysis data is converted into contiguous GPU tensors:
 
@@ -128,22 +128,22 @@ Before simulation, the exported analysis data is converted into contiguous GPU t
 
 <br>
 
-#### **Trade Simulation**
+#### 🔹 **Trade Simulation**
 
 For simplicity, all trades are assumed to be market orders executed at the interval's close price. The trading fee rate is not fixed, and can be set per search target through `tradingFee` in `config.py` to match the fee tier and order type of the account being simulated.
 
 At every interval, each lane computes a TEF direction and value from the analysis data, then runs the shared trade step in `simulatorFunctions.py`:
 
-1. **Exit checks** — Full stop loss (immediate and close-based) and liquidation are evaluated against the interval's worst price. The liquidation price is derived from Binance's tiered maintenance margin table. When multiple exits trigger within the same interval, the one closer to the open price is assumed to have executed first.
-2. **Position reduction** — The position is fully closed on a forced exit, a direction change, or a zero TEF value. Otherwise, it is reduced only by the amount its committed balance exceeds the target (`Allocated Balance × |TEF|`).
-3. **Position increase** — If the committed balance falls below the target, the position is increased toward it, unless a stop loss has blocked re-entry in the same direction (`pslReentry`).
+1. **Exit Checks** — Full stop loss (immediate and close-based) and liquidation are evaluated against the interval's worst price. The liquidation price is derived from Binance's tiered maintenance margin table. When multiple exits trigger within the same interval, the one closer to the open price is assumed to have executed first.
+2. **Position Reduction** — The position is fully closed on a forced exit, a direction change, or a zero TEF value. Otherwise, it is reduced only by the amount its committed balance exceeds the target (`Allocated Balance × |TEF|`).
+3. **Position Increase** — If the committed balance falls below the target, the position is increased toward it, unless a stop loss has blocked re-entry in the same direction (`pslReentry`).
 4. **Accounting** — Fees, realized profit, and margin transfers are applied with the symbol's price, quantity, and quote precision. In isolated mode, margin moves between the cross and isolated balances as positions open and close, including a small buffer for market-order opening losses.
 
 The same allocation ratio (95% of the wallet balance) used by ATM-Eta is applied, so that parameters found here behave consistently when deployed there.
 
 <br>
 
-#### **Single-Pass Balance Trend Evaluation**
+#### 🔹 **Single-Pass Balance Trend Evaluation**
 
 Scoring requires a growth rate and a volatility for every parameter set, but storing a full balance history for tens of thousands of lanes would be prohibitively expensive. Instead, each lane accumulates three running sums of its log balance during the simulation, in `float64`, and the trend is solved in closed form at the end:
 
@@ -154,7 +154,7 @@ This keeps the memory cost per lane constant regardless of the data length. Full
 
 <br>
 
-#### **Numeric Precision**
+#### 🔹 **Numeric Precision**
 
 `DATATYPE_PRECISION` in `config.py` selects between `float32` and `float64` for the simulation. `float32` is used for searching, while `float64` is intended for verifying results against CPU-based simulations in ATM-Eta. The balance trend accumulators always run in `float64`.
 
@@ -182,8 +182,8 @@ Each parameter declares its own search range (`LIMIT`) and decimal precision (`P
 
 The search runs a population of **seekers**, each representing one point in the parameter space.
 
-1. **Numerical gradients** — For every seeker and every parameter, two test points are generated by shifting that parameter up and down by `deltaRatio` of its current value (at least one precision step). All `2 × nSeekers × nParameters` test points are simulated in GPU batches, and central differences of their scores give each seeker's gradient.
-2. **Adam-style update** — Each seeker moves along its gradient using exponential moving averages of the gradient (`beta_momentum`) and its square (`beta_velocity`), with bias correction. Because parameters are quantized, an update that would round back to the same value is nudged by one precision step so seekers do not stall.
+1. **Numerical Gradients** — For every seeker and every parameter, two test points are generated by shifting that parameter up and down by `deltaRatio` of its current value (at least one precision step). All `2 × nSeekers × nParameters` test points are simulated in GPU batches, and central differences of their scores give each seeker's gradient.
+2. **Adam-Style Update** — Each seeker moves along its gradient using exponential moving averages of the gradient (`beta_momentum`) and its square (`beta_velocity`), with bias correction. Because parameters are quantized, an update that would round back to the same value is nudged by one precision step so seekers do not stall.
 3. **Repopulation (self-developed)** — Every `repopulationInterval` steps, the lowest-scoring `repopulationRatio` of seekers are replaced. A `repopulationGuideRatio` share of replacements is sampled from a normal distribution around the surviving seekers, with a spread that narrows over time (`repopulationDecayRate`). The rest are placed uniformly at random to keep exploring.
 4. **Termination** — The relative improvement of the best score is tracked as an EMA over `scoringSamples` steps. When it falls below `terminationThreshold`, the current repetition ends.
 5. **Repetition** — The entire process restarts from a fresh random population `nRepetition` times, and the best result across all repetitions is kept.
@@ -259,7 +259,7 @@ When a result is read back in `READ` mode, the stored identity is compared again
 The simulator is designed to be close enough to ATM-Eta's live behavior for parameter search, not to be a perfect replica of the exchange. In particular:
 
 * For simplicity, all orders are simulated as market orders at the interval's close price, with a user-configurable trading fee rate (`tradingFee`). `LIMIT` and `ADAPTIVE` order types are not simulated, and exported Trade Configurations use `MARKET`.
-* Funding fees and order book slippage are not modeled.
+* Price slippage are not modeled.
 * Intra-interval price paths are unknown, so the execution order of exits within a single interval is approximated.
 
 As with any optimizer, the best parameter set on historical data is prone to overfitting. Validating results on data outside the search range before deployment is strongly recommended.
