@@ -10,6 +10,8 @@
 
 [![korean-readme](https://img.shields.io/badge/Language-한국어-blue.svg)](./README.ko.md)
 
+
+
 ---
 
 
@@ -27,6 +29,8 @@ ATM-Eta can backtest a strategy on the CPU, but finding good parameters for that
 * **Configurable Scoring** — Candidates are scored by final balance, growth rate, volatility, or a Sharpe-ratio-like composite, with a maximum drawdown filter that rejects parameter sets exceeding a user-defined risk limit.
 * **Pluggable TEF Functions** — Strategies are written as self-contained `teff_*.py` modules and discovered automatically at startup. The same TEF interface contract as ATM-Eta applies: analysis data in, target exposure out.
 * **Direct Export to ATM-Eta** — The best parameter set from each search is exported as a ready-to-use ATM-Eta **Trade Configuration** file (`.tc`).
+
+
 
 ---
 
@@ -50,6 +54,8 @@ Before running the application, **Python 3.11 or higher** and an **NVIDIA GPU** 
 
 > **Note:** Before each search in `SEEK` mode, Triton autotuning is warmed up for the batch sizes the search will use, which can take a few minutes.
 
+
+
 ---
 
 
@@ -60,6 +66,8 @@ Before running the application, **Python 3.11 or higher** and an **NVIDIA GPU** 
 * **GPU**:              NVIDIA GPU with CUDA support
 * **RAM**:              4GB or more
 * **Storage**:          4GB or more
+
+
 
 ---
 
@@ -102,6 +110,8 @@ Details of each stage are covered in [GPU Simulation Engine](#gpu-simulation-eng
 | `READ` | `RCODETOREAD` | Loads a saved result, verifies that it matches the current analysis data, and re-simulates the top 100 recorded parameter sets for visual comparison |
 
 <br><br><br>
+
+
 
 ---
 
@@ -158,6 +168,8 @@ This keeps the memory cost per lane constant regardless of the data length. Full
 
 `DATATYPE_PRECISION` in `config.py` selects between `float32` and `float64` for the simulation. `float32` is used for searching, while `float64` is intended for verifying results against CPU-based simulations in ATM-Eta. The balance trend accumulators always run in `float64`.
 
+
+
 ---
 
 
@@ -203,6 +215,8 @@ Where $g$ is the growth rate, $\sigma$ the volatility, and $V$ the total trade v
 
 **Maximum Drawdown Filter** — Each candidate's theoretical 99.7% worst-case drawdown is estimated as $1 - e^{-3\sigma}$. Candidates exceeding `scoring_maxMDD` are given a score of zero, regardless of the scoring method.
 
+
+
 ---
 
 
@@ -221,6 +235,8 @@ A TEF function is a single `teff_{NAME}.py` file placed in the `teffunctions/` f
 The TEF value itself is typically written as a separate `@triton.jit` function that reads the current row of analysis data, updates the model's state trackers, and returns the direction and TEF value. When writing a new TEF function, refer to the modules already included in the `teffunctions/` folder (such as `teff_MMACDDEFAULT.py`). Starting from a copy of an existing module and editing only the marked sections is the simplest way to stay compatible with the shared simulation engine.
 
 Because TEF functions in TEFFP Seeker are Triton kernels while those in ATM-Eta are Python functions, a strategy must be implemented on both sides. The interface contract is identical, so the parameters found here can be applied to the ATM-Eta version directly.
+
+
 
 ---
 
@@ -250,6 +266,8 @@ Each `SEEK` run creates a folder under `results/` named `teffps_result_{timestam
 
 When a result is read back in `READ` mode, the stored identity is compared against the current analysis data, so results are never silently re-evaluated against a different dataset.
 
+
+
 ---
 
 
@@ -258,11 +276,41 @@ When a result is read back in `READ` mode, the stored identity is compared again
 
 The simulator is designed to be close enough to ATM-Eta's live behavior for parameter search, not to be a perfect replica of the exchange. In particular:
 
-* For simplicity, all orders are simulated as market orders at the interval's close price, with a user-configurable trading fee rate (`tradingFee`). `LIMIT` and `ADAPTIVE` order types are not simulated, and exported Trade Configurations use `MARKET`.
+* For simplicity, all orders are simulated as market orders at the interval's close price, with a user-configurable trading fee rate (`tradingFee`). `LIMIT` and `ADAPTIVE` order types are not simulated, and exported Trade Configurations use `MARKET`. (`LIMIT` and `ADAPTIVE` order types are now available from Ver 1.1.0)
 * Price slippage are not modeled.
 * Intra-interval price paths are unknown, so the execution order of exits within a single interval is approximated.
 
 As with any optimizer, the best parameter set on historical data is prone to overfitting. Validating results on data outside the search range before deployment is strongly recommended.
+
+
+
+---
+
+
+
+### 🚀 Project Updates
+**Version 1.1.0 Update [2026/09/28]**
+ - **New Features**
+
+   * **Order Type Support:**
+     The simulator previously executed every trade as a market order at the closing price. It now supports limit, market, and adaptive order types. A limit order rests at a configurable offset from the decision bar's close and fills only when the following bar's range reaches it, leaving the position unchanged otherwise. The adaptive type uses limit orders for entries and partial exits, and switches to a market order when the target exposure factor reverses direction and the position has to be cleared. Forced exits from a full stop loss or a liquidation always execute as market orders.
+
+   * **Separate Maker and Taker Fees:**
+     The trading fee is now configured as two rates, one for limit fills and one for market fills, so the fee advantage of resting orders is reflected in the simulated balance. Both rates are set per seeker target rather than as a module-level constant.
+
+ - **Improvements**
+
+   * **Execution Timing Alignment:**
+     Trades driven by the target exposure factor were previously executed within the same bar that produced the analysis, which let that bar's own close influence its fill outcome. Orders are now placed against the decision bar's close and executed against the following bar, matching how the live system acts on an analysis result only once it is complete. Liquidation prices are likewise evaluated from the decision bar's close.
+
+   * **Trade Handler Ordering:**
+     A bar is now processed as a sequence of exposure-driven reduction, exposure-driven entry, and forced exit, in the same order the live system drains its trade handler queue. A stop loss triggered on a bar therefore applies to the position as it stands after that bar's entries, and is discarded when the position has already reversed.
+
+<br>
+
+**Simulation results from ATM-Eta and TEFFPSeeker are now identical, provided that `DATATYPE_PRECISION` is set to 64 in TEFFPSeeker's `config.py` and slippage consideration is off in ATM-Eta.**
+
+
 
 ---
 
@@ -271,9 +319,13 @@ As with any optimizer, the best parameter set on historical data is prone to ove
 ### 🗓️ Project Duration
 * September 2024 – March 2026 (Updates + Maintenance Continued)
 
+
+
 ---
 
+
+
 ### 📄 Document Info
-**Last Updated:** September 26th, 2026  
+**Last Updated:** September 28th, 2026  
 **Author:** Bumsu Kim  
 **Email:**  kimlvis31@gmail.com 

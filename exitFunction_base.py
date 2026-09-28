@@ -18,6 +18,8 @@ else:                          PTDTYPE = torch.float32
 ALLOCATIONRATIO    = 0.95
 MARKETOPENLOSSRATE = 0.0015
 
+ORDERTYPE_CODES = {'MARKET': 0, 'LIMIT': 1, 'ADAPTIVE': 2}
+
 BPST_KVALUE        = 2/(100+1)
 BPST_PRINTINTERVAL = 100e6
 
@@ -62,7 +64,22 @@ def BPST_Timer(func):
 
 #Exit Function Model ====================================================================================================================================================================================================================================
 class exitFunction():
-    def __init__(self, modelName, isSeeker, balance_initial, balance_allocation_max, leverage, isolated, tradingFee, pslReentry, precision_price, precision_quantity, precision_quote, lmTable):
+    def __init__(self, 
+                 modelName, 
+                 isSeeker, 
+                 balance_initial, 
+                 balance_allocation_max, 
+                 leverage, 
+                 isolated, 
+                 orderType,
+                 orderOffset, 
+                 tradingFee_limit, 
+                 tradingFee_market, 
+                 pslReentry, 
+                 precision_price, 
+                 precision_quantity, 
+                 precision_quote, 
+                 lmTable):
         #[1]: System
         self.MODELNAME                 = modelName
         self.model                     = TEFFUNCTIONS_MODEL[self.MODELNAME]
@@ -73,7 +90,10 @@ class exitFunction():
         self.balance_allocation_max    = float('inf') if balance_allocation_max is None else round(balance_allocation_max, precision_quote)
         self.leverage                  = leverage
         self.isolated                  = isolated
-        self.tradingFee                = tradingFee
+        self.orderType                 = ORDERTYPE_CODES.get(orderType, 0)
+        self.orderOffset               = orderOffset if type(orderOffset) in (int, float) and 0.0 <= orderOffset < 0.1 else 0.0
+        self.tradingFee_limit          = tradingFee_limit
+        self.tradingFee_market         = tradingFee_market
         self.pslReentry                = pslReentry
         self.precision_price           = precision_price
         self.precision_quantity        = precision_quantity
@@ -790,8 +810,11 @@ class exitFunction():
                                        step_quote             = 10 ** -self.precision_quote,
                                        leverage               = self.leverage,
                                        isolated               = self.isolated,
+                                       orderType              = self.orderType,
+                                       orderOffset            = self.orderOffset,
                                        allocationRatio        = ALLOCATIONRATIO,
-                                       tradingFee             = self.tradingFee,
+                                       tradingFee_limit       = self.tradingFee_limit,
+                                       tradingFee_market      = self.tradingFee_market,
                                        marketOpenLossRate     = MARKETOPENLOSSRATE,
                                        lmTable                = self.lmTable,
                                        lmTable_stride         = self.lmTable.stride(0),
